@@ -8,7 +8,7 @@ const int directionPin = 3;
 const int rpm_max = 50; // Maximum rpm of output shaft
 const float interrupt_freq = 10.0; // Interrupt frequency in Hz
 const float kp_speed = 2; // P-gain for speed control loop
-const float kd_speed = 0.05; // P-gain for speed control loop
+const float kd_speed = 0.1; // P-gain for speed control loop
 const float ki_speed = 1; // P-gain for speed control loop
 
 volatile long encoderValue = 0;
