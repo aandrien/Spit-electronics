@@ -1,0 +1,770 @@
+[
+    {
+        "id": "fd540bce26c1c011",
+        "type": "tab",
+        "label": "Flow 1",
+        "disabled": true,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "f9e17605cf3ed006",
+        "type": "tab",
+        "label": "Flow 3",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "777307716499796d",
+        "type": "mqtt-broker",
+        "name": "localhost_RPI",
+        "broker": "localhost",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "ac3ea93b300b3ee1",
+        "type": "ui_base",
+        "theme": {
+            "name": "theme-light",
+            "lightTheme": {
+                "default": "#0094CE",
+                "baseColor": "#0094CE",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif",
+                "edited": true,
+                "reset": false
+            },
+            "darkTheme": {
+                "default": "#097479",
+                "baseColor": "#097479",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif",
+                "edited": false
+            },
+            "customTheme": {
+                "name": "Untitled Theme 1",
+                "default": "#4B7930",
+                "baseColor": "#4B7930",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif"
+            },
+            "themeState": {
+                "base-color": {
+                    "default": "#0094CE",
+                    "value": "#0094CE",
+                    "edited": false
+                },
+                "page-titlebar-backgroundColor": {
+                    "value": "#0094CE",
+                    "edited": false
+                },
+                "page-backgroundColor": {
+                    "value": "#fafafa",
+                    "edited": false
+                },
+                "page-sidebar-backgroundColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "group-textColor": {
+                    "value": "#1bbfff",
+                    "edited": false
+                },
+                "group-borderColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "group-backgroundColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "widget-textColor": {
+                    "value": "#111111",
+                    "edited": false
+                },
+                "widget-backgroundColor": {
+                    "value": "#0094ce",
+                    "edited": false
+                },
+                "widget-borderColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "base-font": {
+                    "value": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif"
+                }
+            },
+            "angularTheme": {
+                "primary": "indigo",
+                "accents": "blue",
+                "warn": "red",
+                "background": "grey",
+                "palette": "light"
+            }
+        },
+        "site": {
+            "name": "Node-RED Dashboard",
+            "hideToolbar": "false",
+            "allowSwipe": "false",
+            "lockMenu": "false",
+            "allowTempTheme": "true",
+            "dateFormat": "DD/MM/YYYY",
+            "sizes": {
+                "sx": 48,
+                "sy": 48,
+                "gx": 6,
+                "gy": 6,
+                "cx": 6,
+                "cy": 6,
+                "px": 0,
+                "py": 0
+            }
+        }
+    },
+    {
+        "id": "380840898e423db0",
+        "type": "ui_group",
+        "name": "Controls",
+        "tab": "724857c6c1bff6f9",
+        "order": 1,
+        "disp": true,
+        "width": "5",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "724857c6c1bff6f9",
+        "type": "ui_tab",
+        "name": "Live view",
+        "icon": "dashboard",
+        "disabled": false,
+        "hidden": false
+    },
+    {
+        "id": "a55b0b6cdaaca03d",
+        "type": "ui_group",
+        "name": "Measurements",
+        "tab": "724857c6c1bff6f9",
+        "order": 2,
+        "disp": true,
+        "width": "10",
+        "collapse": true,
+        "className": ""
+    },
+    {
+        "id": "1aa2ee68bc227041",
+        "type": "ui_spacer",
+        "z": "fd540bce26c1c011",
+        "name": "spacer",
+        "group": "380840898e423db0",
+        "order": 1,
+        "width": 1,
+        "height": 1
+    },
+    {
+        "id": "ce78c4151b3dca75",
+        "type": "ui_spacer",
+        "z": "fd540bce26c1c011",
+        "name": "spacer",
+        "group": "380840898e423db0",
+        "order": 1,
+        "width": 1,
+        "height": 1
+    },
+    {
+        "id": "9eb429f6899148c7",
+        "type": "ui_spacer",
+        "z": "fd540bce26c1c011",
+        "name": "spacer",
+        "group": "380840898e423db0",
+        "order": 1,
+        "width": 1,
+        "height": 1
+    },
+    {
+        "id": "7c1eedd9c36004dc",
+        "type": "ui_spacer",
+        "z": "fd540bce26c1c011",
+        "name": "spacer",
+        "group": "380840898e423db0",
+        "order": 1,
+        "width": 1,
+        "height": 1
+    },
+    {
+        "id": "17188ca64a45c712",
+        "type": "ui_tab",
+        "name": "Tuning",
+        "icon": "dashboard",
+        "disabled": false,
+        "hidden": false
+    },
+    {
+        "id": "2ca4d5acb5ecceec",
+        "type": "ui_group",
+        "name": "Measurements",
+        "tab": "17188ca64a45c712",
+        "order": 1,
+        "disp": true,
+        "width": "6",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "d29916a5a3b30dd6",
+        "type": "mqtt in",
+        "z": "fd540bce26c1c011",
+        "name": "vel_measured",
+        "topic": "mqtt/rpi/vel_measured",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "777307716499796d",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 250,
+        "y": 220,
+        "wires": [
+            [
+                "31a78673b6b493de"
+            ]
+        ]
+    },
+    {
+        "id": "31a78673b6b493de",
+        "type": "ui_gauge",
+        "z": "fd540bce26c1c011",
+        "name": "",
+        "group": "a55b0b6cdaaca03d",
+        "order": 1,
+        "width": "0",
+        "height": "0",
+        "gtype": "gage",
+        "title": "Velocity",
+        "label": "%",
+        "format": "{{value | number:0}}",
+        "min": 0,
+        "max": "100",
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "",
+        "seg2": "",
+        "diff": false,
+        "className": "",
+        "x": 600,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "1ff372859358bc50",
+        "type": "ui_slider",
+        "z": "fd540bce26c1c011",
+        "name": "",
+        "label": "Velocity Setpoint",
+        "tooltip": "",
+        "group": "380840898e423db0",
+        "order": 1,
+        "width": "2",
+        "height": "8",
+        "passthru": false,
+        "outs": "all",
+        "topic": "topic",
+        "topicType": "msg",
+        "min": 0,
+        "max": "100",
+        "step": "1",
+        "className": "",
+        "x": 270,
+        "y": 340,
+        "wires": [
+            [
+                "e77faf990e1742cb",
+                "66677478bf9d76fa"
+            ]
+        ]
+    },
+    {
+        "id": "e77faf990e1742cb",
+        "type": "mqtt out",
+        "z": "fd540bce26c1c011",
+        "name": "",
+        "topic": "mqtt/rpi/vel_ref",
+        "qos": "2",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "777307716499796d",
+        "x": 640,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "66677478bf9d76fa",
+        "type": "ui_chart",
+        "z": "fd540bce26c1c011",
+        "name": "",
+        "group": "380840898e423db0",
+        "order": 5,
+        "width": "2",
+        "height": "8",
+        "label": "Velocity Setpoint",
+        "chartType": "bar",
+        "legend": "false",
+        "xformat": "HH:mm:ss",
+        "interpolate": "linear",
+        "nodata": "",
+        "dot": false,
+        "ymin": "0",
+        "ymax": "100",
+        "removeOlder": 1,
+        "removeOlderPoints": "",
+        "removeOlderUnit": "3600",
+        "cutout": 0,
+        "useOneColor": false,
+        "useUTC": false,
+        "colors": [
+            "#1f77b4",
+            "#aec7e8",
+            "#ff7f0e",
+            "#2ca02c",
+            "#98df8a",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "outputs": 1,
+        "useDifferentColor": false,
+        "className": "",
+        "x": 690,
+        "y": 420,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "e622dd117aab7d73",
+        "type": "mqtt in",
+        "z": "f9e17605cf3ed006",
+        "name": "vel_measured",
+        "topic": "mqtt/rpi/vel_measured",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "777307716499796d",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 270,
+        "y": 140,
+        "wires": [
+            [
+                "6d0c7b0fd99379eb"
+            ]
+        ]
+    },
+    {
+        "id": "6d0c7b0fd99379eb",
+        "type": "ui_gauge",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "group": "a55b0b6cdaaca03d",
+        "order": 1,
+        "width": "0",
+        "height": "0",
+        "gtype": "gage",
+        "title": "Velocity",
+        "label": "%",
+        "format": "{{value | number:0}}",
+        "min": 0,
+        "max": "100",
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "",
+        "seg2": "",
+        "diff": false,
+        "className": "",
+        "x": 620,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "4e3caa92131fe78e",
+        "type": "ui_slider",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "label": "Velocity Setpoint",
+        "tooltip": "",
+        "group": "380840898e423db0",
+        "order": 1,
+        "width": "2",
+        "height": "8",
+        "passthru": false,
+        "outs": "all",
+        "topic": "topic",
+        "topicType": "msg",
+        "min": 0,
+        "max": "100",
+        "step": "1",
+        "className": "",
+        "x": 290,
+        "y": 260,
+        "wires": [
+            [
+                "fa53817379494857",
+                "8e9c71e22007baae"
+            ]
+        ]
+    },
+    {
+        "id": "fa53817379494857",
+        "type": "ui_chart",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "group": "380840898e423db0",
+        "order": 5,
+        "width": "2",
+        "height": "8",
+        "label": "Velocity Setpoint",
+        "chartType": "bar",
+        "legend": "false",
+        "xformat": "HH:mm:ss",
+        "interpolate": "linear",
+        "nodata": "",
+        "dot": false,
+        "ymin": "0",
+        "ymax": "100",
+        "removeOlder": 1,
+        "removeOlderPoints": "",
+        "removeOlderUnit": "3600",
+        "cutout": 0,
+        "useOneColor": false,
+        "useUTC": false,
+        "colors": [
+            "#1f77b4",
+            "#aec7e8",
+            "#ff7f0e",
+            "#2ca02c",
+            "#98df8a",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "outputs": 1,
+        "useDifferentColor": false,
+        "className": "",
+        "x": 710,
+        "y": 340,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "8e9c71e22007baae",
+        "type": "mqtt out",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "topic": "mqtt/rpi/rx/vel_ref",
+        "qos": "2",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "777307716499796d",
+        "x": 670,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "a7b1b3ae2177a9e7",
+        "type": "mqtt out",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "topic": "mqtt/rpi/rx/start_stop",
+        "qos": "2",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "777307716499796d",
+        "x": 700,
+        "y": 420,
+        "wires": []
+    },
+    {
+        "id": "9b220d4ccec90abd",
+        "type": "ui_switch",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "label": "OFF/ON",
+        "tooltip": "",
+        "group": "380840898e423db0",
+        "order": 8,
+        "width": "5",
+        "height": "1",
+        "passthru": false,
+        "decouple": "false",
+        "topic": "topic",
+        "topicType": "msg",
+        "style": "",
+        "onvalue": "true",
+        "onvalueType": "bool",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "false",
+        "offvalueType": "bool",
+        "officon": "",
+        "offcolor": "",
+        "animate": true,
+        "className": "",
+        "x": 280,
+        "y": 440,
+        "wires": [
+            [
+                "a7b1b3ae2177a9e7"
+            ]
+        ]
+    },
+    {
+        "id": "b613973bf18cf642",
+        "type": "ui_chart",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "group": "2ca4d5acb5ecceec",
+        "order": 0,
+        "width": 0,
+        "height": 0,
+        "label": "chart",
+        "chartType": "line",
+        "legend": "false",
+        "xformat": "HH:mm:ss",
+        "interpolate": "linear",
+        "nodata": "",
+        "dot": false,
+        "ymin": "",
+        "ymax": "",
+        "removeOlder": 1,
+        "removeOlderPoints": "",
+        "removeOlderUnit": "3600",
+        "cutout": 0,
+        "useOneColor": false,
+        "useUTC": false,
+        "colors": [
+            "#1f77b4",
+            "#aec7e8",
+            "#ff7f0e",
+            "#2ca02c",
+            "#98df8a",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "outputs": 1,
+        "useDifferentColor": false,
+        "className": "",
+        "x": 630,
+        "y": 560,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "788f12256d76c636",
+        "type": "ui_button",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "group": "2ca4d5acb5ecceec",
+        "order": 9,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "label": "button",
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "payload": "1",
+        "payloadType": "str",
+        "topic": "topic",
+        "topicType": "msg",
+        "x": 310,
+        "y": 560,
+        "wires": [
+            [
+                "b613973bf18cf642"
+            ]
+        ]
+    },
+    {
+        "id": "cb743fef2fafd894",
+        "type": "mqtt in",
+        "z": "f9e17605cf3ed006",
+        "name": "num_rounds",
+        "topic": "mqtt/rpi/num_rounds",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "777307716499796d",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 270,
+        "y": 200,
+        "wires": [
+            [
+                "c7c3888eeee058c2",
+                "81f7303e60a8f881"
+            ]
+        ]
+    },
+    {
+        "id": "c7c3888eeee058c2",
+        "type": "ui_text",
+        "z": "f9e17605cf3ed006",
+        "group": "a55b0b6cdaaca03d",
+        "order": 2,
+        "width": "0",
+        "height": "0",
+        "name": "",
+        "label": "# Rondjes      ",
+        "format": "{{msg.payload | number:0}}",
+        "layout": "row-right",
+        "className": "",
+        "style": true,
+        "font": "Arial,Arial,Helvetica,sans-serif",
+        "fontSize": "30",
+        "color": "#0091ff",
+        "x": 640,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "81f7303e60a8f881",
+        "type": "function",
+        "z": "f9e17605cf3ed006",
+        "name": "function 1",
+        "func": "msgout= msg;\nmsgout.payload = msg.payload/3;\nreturn msgout;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 560,
+        "y": 220,
+        "wires": [
+            [
+                "46214ff330e2705a"
+            ]
+        ]
+    },
+    {
+        "id": "46214ff330e2705a",
+        "type": "ui_text",
+        "z": "f9e17605cf3ed006",
+        "group": "a55b0b6cdaaca03d",
+        "order": 2,
+        "width": "0",
+        "height": "0",
+        "name": "",
+        "label": "# Rondjes varreke",
+        "format": "{{msg.payload | number:0}}",
+        "layout": "row-right",
+        "className": "",
+        "style": true,
+        "font": "Arial,Arial,Helvetica,sans-serif",
+        "fontSize": "30",
+        "color": "#0091ff",
+        "x": 822.544921875,
+        "y": 193.34683227539062,
+        "wires": []
+    },
+    {
+        "id": "b4ce10332c108beb",
+        "type": "ui_button",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "group": "2ca4d5acb5ecceec",
+        "order": 9,
+        "width": 0,
+        "height": 0,
+        "passthru": true,
+        "label": "HANDELING BAS",
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "payload": "1",
+        "payloadType": "num",
+        "topic": "topic",
+        "topicType": "msg",
+        "x": 330,
+        "y": 640,
+        "wires": [
+            [
+                "f499cf9d76ec2968"
+            ]
+        ]
+    },
+    {
+        "id": "f499cf9d76ec2968",
+        "type": "ui_text",
+        "z": "f9e17605cf3ed006",
+        "group": "2ca4d5acb5ecceec",
+        "order": 2,
+        "width": 0,
+        "height": 0,
+        "name": "",
+        "label": "text",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#000000",
+        "x": 570,
+        "y": 640,
+        "wires": []
+    }
+]
