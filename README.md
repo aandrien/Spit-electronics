@@ -9,16 +9,11 @@ The RPi uses MQTT to make the data that is received in the Python script availab
 
 ## Arduino Installation
 ### Install libraries
-<<<<<<< HEAD
 Using the Arduino IDE library manager, install the following libraries:
 
 - [MovingAverageFloat](https://reference.arduino.cc/reference/en/libraries/movingaveragefloat/) by Pavel Slama.
 - [SerialTransfer](https://www.arduino.cc/reference/en/libraries/serialtransfer/) by PowerBroker2.
 - [movingAvg](https://www.arduino.cc/reference/en/libraries/movingavg/) by Jack Christensen
-
-=======
-**TODO**
->>>>>>> 0948a3e1fb8769cac5fd35076dc6d841303341da
 
 ### Upload code
 The Arduino installation is just uploading the latest version in the [Arduino folder](Arduino).
@@ -46,15 +41,12 @@ Run the following code to test if the broker is running:
 For more about Mosquitto, such as allowing other devices on the network to access it and setting up passwords, see https://randomnerdtutorials.com/how-to-install-mosquitto-broker-on-raspberry-pi/.
 
 ### Installing the Python mqtt library
-<<<<<<< HEAD
 Install Python3 and pip if it is not installed yet: 
 ```
 sudo apt update
 sudo apt install python3-venv python3-pip
 ```
 
-=======
->>>>>>> 0948a3e1fb8769cac5fd35076dc6d841303341da
 Use `pip` to install the paho-mqtt library:
 
 `pip install paho-mqtt`
@@ -71,12 +63,6 @@ Use `crontab` to make the RPi run the [start script](RPi/bash_scripts/start_spit
 
 Just select `nano` as the editor. Then add the `start_spit.sh` to the boot command:
 
-<<<<<<< HEAD
 `@reboot pathToRepo/RPi/bash_scripts/start_spit.sh`
 
 where `pathToRepo` is the path to this repository.
-=======
-`@reboot /pathToRepo/RPi/bash_scripts/start_spit.sh`
-
-**TODO: check current crontab on RPi**
->>>>>>> 0948a3e1fb8769cac5fd35076dc6d841303341da
