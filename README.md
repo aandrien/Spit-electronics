@@ -7,6 +7,8 @@ The Arduino in turn is connected to a Raspberry Pi 4 via USB. Using the [SerialT
 
 The RPi uses MQTT to make the data that is received in the Python script available anywhere on the RPi. Node-red then subscribes to these topics and the data is visualized in a node-red-dashboard.
 
+!!!!!!TODO: add picture!!!!!
+
 ## Arduino Installation
 ### Install libraries
 Using the Arduino IDE library manager, install the following libraries:
@@ -66,3 +68,30 @@ Just select `nano` as the editor. Then add the `start_spit.sh` to the boot comma
 `@reboot pathToRepo/RPi/bash_scripts/start_spit.sh`
 
 where `pathToRepo` is the path to this repository.
+
+## Connecting the Spit
+TODO
+
+## Using the Spit
+TODO
+
+## Debugging
+### Kill running Python scripts
+It could happen that the Python script that is ran at startup doesn't exit properly and keeps running in the background, causing all kinds of issues. To kill it (or any other Python process for that manner), type in a terminal:
+
+`ps -ef | grep python`
+
+and find the code of the program you want to kill. Then just simply do
+
+`kill CodeYouFound`
+
+where `CodeYouFound` is of course the code you found in the previous step.
+
+For instance, when running the `grep` command I get
+```
+pi          1160       1  0 20:42 ?        00:00:00 /usr/bin/python3 /usr/share/system-config-printer/applet.py
+pi          2102    2085 67 21:18 pts/0    00:00:04 python3 ../Spit_RPi_Arduino_V3.py
+pi          2119    1566  0 21:18 pts/0    00:00:00 grep --color=auto python
+```
+so if want to kill the Spit program, I would do
+`kill 2102`. You can then run the `grep` command again to check if it is indeed killed.
