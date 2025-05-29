@@ -4,6 +4,7 @@ import paho.mqtt.client as paho
 import numpy as np
 from pySerialTransfer import pySerialTransfer as txfer
 
+## Definitions ##
 hostname = "localhost"
 broker_port = 1883
 send_measured_num_rounds = "mqtt/rpi/num_rounds"
@@ -14,7 +15,6 @@ receive_topic = "mqtt/rpi/rx/#"
 
 send_client = paho.Client()
 receive_client = paho.Client()
-
 
 
 vel_measured = 0.0
@@ -76,7 +76,9 @@ def message_handling_vel_ref(client, userdata, msg):
     # Send all data
     sendData()
 
-USB_connection_started = False
+USB_connection_started = False # flag to check USB connection has been made
+USB_max_connect_attemps = 20
+USB_connect_attemps = 0
 
 receive_client.message_callback_add(receive_vel_ref_topic, message_handling_vel_ref)
 receive_client.message_callback_add(receive_startstop_topic, message_handling_start_stop)
@@ -84,24 +86,26 @@ receive_client.subscribe(receive_topic)
 
 if __name__ == '__main__':
     try:
-        while ~USB_connection_started:
+        while ~USB_connection_started and USB_connect_attemps <= USB_max_connect_attemps:
             try:
                 link = txfer.SerialTransfer('/dev/ttyACM0')
                 link.open()
                 USB_connection_started = True
                 print("USB connected")
             except:
-                print("Retrying USB connection")
+                print("Retrying USB connection, attempt: ", USB_connect_attemps)
                 time.sleep(2)
+                USB_connect_attemps += 1
             else:
                 break
-
+        
+        if ~USB_connection_started:
+            print("Could not connect to Arduino via USB, stopping program.")
+            exit(0)
         print("Starting MQTT receive")
         
         time.sleep(2) # allow some time for the Arduino to completely reset
         receive_client.loop_start()
-
-        
 
         while True:
             ###################################################################
