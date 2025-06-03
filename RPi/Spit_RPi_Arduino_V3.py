@@ -106,7 +106,13 @@ if __name__ == '__main__':
         
         time.sleep(2) # allow some time for the Arduino to completely reset
         receive_client.loop_start()
-
+        
+        args = sys.argv
+        sim_enabled = " "
+        if len(args) > 1:
+            sim_enabled = sys.argv[1]
+            if sim_enabled == "sim":
+                print("Simulation mode")
         while True:
             ###################################################################
             # Transmit all the data to send in a single packet
@@ -117,33 +123,35 @@ if __name__ == '__main__':
             # Receive a float
             ###################################################################
             if link.available():
-                recSize = 0
                 
-                vel_measured = link.rx_obj(obj_type='f', start_pos=recSize)
-                recSize += txfer.STRUCT_FORMAT_LENGTHS['f']
+                
+                if sim_enabled == "sim":
+                    vel_measured_tmp = vel_ref + 5 * np.random.rand(1)
+                    vel_measured = float(vel_measured_tmp)
+                    encoderCount = 10
+                else:
+                    recSize = 0
+                    vel_measured = link.rx_obj(obj_type='f', start_pos=recSize)
+                    recSize += txfer.STRUCT_FORMAT_LENGTHS['f']
 
-                encoderCount = link.rx_obj(obj_type='L', start_pos=recSize)
-                recSize += txfer.STRUCT_FORMAT_LENGTHS['L']
-
-                # encoderCount += 50
+                    encoderCount = link.rx_obj(obj_type='L', start_pos=recSize)
+                    recSize += txfer.STRUCT_FORMAT_LENGTHS['L']
                 
                 num_rounds = encoderCount/305
 
-                # print("vel measured: ", vel_measured)
-                # print("encoder count: ", encoderCount)
-
-                # print('number rondjes = 302 307')
                 ###################################################################
                 # Display the received data
                 ###################################################################
                 # print('RCVD: {}'.format(testRX.vel_ref))
                 # print(' ')
 
-                message = str(vel_measured)
-                send_client.publish(send_measured_vel_topic, message)
+                if isinstance(vel_measured, (float, int)) and not np.isnan(vel_measured):
+                    message = str(vel_measured)
+                    send_client.publish(send_measured_vel_topic, message)
 
-                message = str(num_rounds)
-                send_client.publish(send_measured_num_rounds, message)
+                if isinstance(num_rounds, (float, int)) and not np.isnan(num_rounds):
+                    message = str(num_rounds)
+                    send_client.publish(send_measured_num_rounds, message)
                 
 
                 ###################################################################
