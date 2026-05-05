@@ -11,6 +11,9 @@ send_measured_num_rounds = "mqtt/rpi/num_rounds"
 send_measured_vel_topic = "mqtt/rpi/vel_measured"
 receive_vel_ref_topic = "mqtt/rpi/rx/vel_ref"
 receive_startstop_topic = "mqtt/rpi/rx/start_stop"
+receive_p_gain_topic = "mqtt/rpi/rx/p_gain"
+receive_i_action_topic = "mqtt/rpi/rx/i_action"
+receive_feed_forward_topic = "mqtt/rpi/rx/feed_forward"
 receive_topic = "mqtt/rpi/rx/#"
 
 send_client = paho.Client()
@@ -34,6 +37,9 @@ send_client.publish(send_measured_vel_topic, message)
 
 start_stop = 0
 vel_ref = 0.0
+P_gain = 2.0
+I_action = 10.0
+feed_forward = 10.0
 
 def sendData():
     sendSize = 0
@@ -42,6 +48,21 @@ def sendData():
     # Send vel_ref
     ###################################################################
     sendSize = link.tx_obj(vel_ref, start_pos=sendSize)
+
+    ###################################################################
+    # Send P gain
+    ###################################################################
+    sendSize = link.tx_obj(P_gain, start_pos=sendSize)
+
+    ###################################################################
+    # Send I gain
+    ###################################################################
+    sendSize = link.tx_obj(I_action, start_pos=sendSize)
+
+    ###################################################################
+    # Send feed_forward
+    ###################################################################
+    sendSize = link.tx_obj(feed_forward, start_pos=sendSize)
 
     ###################################################################
     # Send start/stop command
@@ -65,7 +86,6 @@ def message_handling_start_stop(client, userdata, msg):
     # Send all data
     sendData()
 
-
 def message_handling_vel_ref(client, userdata, msg):
     # Define global variable to be able to modify it in function
     global vel_ref
@@ -76,12 +96,48 @@ def message_handling_vel_ref(client, userdata, msg):
     # Send all data
     sendData()
 
+def message_handling_P_gain(client, userdata, msg):
+    # Define global variable to be able to modify it in function
+    global P_gain
+
+    # Decode payload coming from MQTT node
+    P_gain = float(msg.payload.decode())
+    P_gain = min(max(P_gain, 0.0), 5.0)
+
+    # Send all data
+    sendData()
+
+def message_handling_I_action(client, userdata, msg):
+    # Define global variable to be able to modify it in function
+    global I_action
+
+    # Decode payload coming from MQTT node
+    I_action = float(msg.payload.decode())
+    I_action = min(max(I_action, 0.0), 15.0)
+
+    # Send all data
+    sendData()
+
+def message_handling_feed_forward(client, userdata, msg):
+    # Define global variable to be able to modify it in function
+    global feed_forward
+
+    # Decode payload coming from MQTT node
+    feed_forward = float(msg.payload.decode())
+    # print("feed-forward: ", feed_forward)
+    # Send all data
+    sendData()
+
 USB_connection_started = False # flag to check USB connection has been made
 USB_max_connect_attemps = 20
 USB_connect_attemps = 0
 
 receive_client.message_callback_add(receive_vel_ref_topic, message_handling_vel_ref)
 receive_client.message_callback_add(receive_startstop_topic, message_handling_start_stop)
+receive_client.message_callback_add(receive_p_gain_topic, message_handling_P_gain)
+receive_client.message_callback_add(receive_i_action_topic, message_handling_I_action)
+receive_client.message_callback_add(receive_feed_forward_topic, message_handling_feed_forward)
+
 receive_client.subscribe(receive_topic)
 
 if __name__ == '__main__':
