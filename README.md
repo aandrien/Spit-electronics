@@ -95,3 +95,10 @@ pi          2119    1566  0 21:18 pts/0    00:00:00 grep --color=auto python
 ```
 so if want to kill the Spit program, I would do
 `kill 2102`. You can then run the `grep` command again to check if it is indeed killed.
+
+## TODO
+- Fix I_action = float(msg.payload.decode()) -> ValueError: could not convert string to float: '' -> occurs when in NodeRed we leave the box empty of any value, 
+- Add data logging and replay
+- Add visualization
+- Add sound with speakers
+- Add system identification
