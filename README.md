@@ -122,6 +122,16 @@ Just select `nano` as the editor. Then add the `start_spit.sh` to the boot comma
 
 where `pathToRepo` is the path to this repository.
 
+## Network reference
+Current addresses for the dev setup. Update if anything is re-IP'd.
+
+| Device                              | MAC                 | IP              |
+|-------------------------------------|---------------------|-----------------|
+| Raspberry Pi (`eth0`, to dev router) | `DC:A6:32:4C:EF:69` | `192.168.2.100` |
+| Dev router (Pi ↔ laptop bridge)      | —                   | `192.168.2.10`  |
+
+The Pi's Wi-Fi interface (`wlan0`) gets a DHCP lease from the Odido router on a different subnet and is the path to the internet. Reach the Pi over Ethernet at `192.168.2.100` (e.g. `ssh pi@192.168.2.100`); reach it over Wi-Fi at whatever its current `wlan0` lease is (`ip a` on the Pi).
+
 ## Connecting the Spit
 TODO
 
