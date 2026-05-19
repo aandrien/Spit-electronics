@@ -71,62 +71,27 @@ def sendData():
 
     link.send(sendSize)
 
+def make_float_handler(var_name, lo=None, hi=None):
+    def handler(client, userdata, msg):
+        payload = msg.payload.decode().strip()
+        if payload == "":
+            return
+        value = float(payload)
+        if lo is not None:
+            value = min(max(value, lo), hi)
+        globals()[var_name] = value
+        sendData()
+    return handler
+
 def message_handling_start_stop(client, userdata, msg):
-    # Define global variable to be able to modify it in function
     global start_stop
-
-    # Decode payload coming from MQTT node
-    if msg.payload.decode() == "true":
-        start_stop = 1
-    else:
-        start_stop = 0
-
-    # print("startstop: ", start_stop)
-
-    # Send all data
+    start_stop = 1 if msg.payload.decode() == "true" else 0
     sendData()
 
-def message_handling_vel_ref(client, userdata, msg):
-    # Define global variable to be able to modify it in function
-    global vel_ref
-
-    # Decode payload coming from MQTT node
-    vel_ref = float(msg.payload.decode())
-
-    # Send all data
-    sendData()
-
-def message_handling_P_gain(client, userdata, msg):
-    # Define global variable to be able to modify it in function
-    global P_gain
-
-    # Decode payload coming from MQTT node
-    P_gain = float(msg.payload.decode())
-    P_gain = min(max(P_gain, 0.0), 5.0)
-
-    # Send all data
-    sendData()
-
-def message_handling_I_action(client, userdata, msg):
-    # Define global variable to be able to modify it in function
-    global I_action
-
-    # Decode payload coming from MQTT node
-    I_action = float(msg.payload.decode())
-    I_action = min(max(I_action, 0.0), 15.0)
-
-    # Send all data
-    sendData()
-
-def message_handling_feed_forward(client, userdata, msg):
-    # Define global variable to be able to modify it in function
-    global feed_forward
-
-    # Decode payload coming from MQTT node
-    feed_forward = float(msg.payload.decode())
-    # print("feed-forward: ", feed_forward)
-    # Send all data
-    sendData()
+message_handling_vel_ref      = make_float_handler("vel_ref")
+message_handling_P_gain       = make_float_handler("P_gain", 0.0, 5.0)
+message_handling_I_action     = make_float_handler("I_action", 0.0, 15.0)
+message_handling_feed_forward = make_float_handler("feed_forward")
 
 USB_connection_started = False # flag to check USB connection has been made
 USB_max_connect_attemps = 20
