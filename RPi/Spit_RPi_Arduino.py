@@ -42,12 +42,12 @@ vel_ref = 0.0
 vel_ref_target = 0.0
 P_gain = 2.0
 I_action = 10.0
-feed_forward = 10.0
+feed_forward = 0.0
 
 # Soft-start ramp: when the user toggles start while measured velocity is far
 # from the target, vel_ref is ramped from the current measured value up to
 # vel_ref_target at RAMP_RATE units/sec instead of stepping there immediately.
-RAMP_RATE = 10.0
+RAMP_RATE = 25.0
 RAMP_TRIGGER_GAP = 1.0
 RAMP_STEP_INTERVAL = 0.05
 
@@ -117,7 +117,7 @@ def message_handling_start_stop(client, userdata, msg):
 
     if start_stop == 1 and prev_start_stop == 0:
         if abs(vel_ref_target - vel_measured) > RAMP_TRIGGER_GAP:
-            vel_ref = max(vel_measured, 0.0)
+            vel_ref = 0.0
             ramping = True
             last_ramp_time = time.time()
         else:
