@@ -9,6 +9,43 @@ The RPi uses MQTT to make the data that is received in the Python script availab
 
 !!!!!!TODO: add picture!!!!!
 
+## How the Pi and Arduino communicate
+Both sides use the SerialTransfer protocol over `/dev/ttyACM0` at 115200 baud — a framed, CRC-checked packet format where you stuff a binary buffer with `txObj`/`tx_obj` and read it back with `rxObj`/`rx_obj` in the same field order. No JSON, no text — the byte layout must match exactly, in the same order, on both sides.
+
+### Pi → Arduino (commands)
+The Pi re-sends the *whole* packet on every incoming MQTT message (`sendData()` in the Python script). So if you only tweak the I-gain in Node-Red, the Arduino still gets the unchanged P, feed-forward, and start/stop values too.
+
+| Offset | Field          | Type   | Pi source                | Arduino sink         |
+|--------|----------------|--------|--------------------------|----------------------|
+| 0      | `vel_ref`      | float  | Node-Red slider          | `vel_ref_receive`    |
+| 4      | `P_gain`       | float  | Node-Red (clamped 0–5)   | `P`                  |
+| 8      | `I_action`     | float  | Node-Red (clamped 0–15)  | `I_action`           |
+| 12     | `feed_forward` | float  | Node-Red                 | `feed_forward`       |
+| 16     | `start_stop`   | uint8  | Node-Red bool `"true"`   | `start_stop_RPi`     |
+
+### Arduino → Pi (telemetry)
+Every 50 ms the Arduino sends:
+
+| Offset | Field         | Type   | Meaning                                  |
+|--------|---------------|--------|------------------------------------------|
+| 0      | `control_vel` | float  | Moving-average measured velocity         |
+| 4      | `encoderSend` | uint32 | Raw encoder pulse count since boot       |
+
+The Pi divides the encoder count by 305 to get `num_rounds` and republishes both on MQTT (`mqtt/rpi/vel_measured`, `mqtt/rpi/num_rounds`) for Node-Red to graph.
+
+### Control flow on the Arduino
+1. **Two input sources** — a physical pot on `A0` and the Pi over serial. A latching flag `started_from_RPi` decides which `vel_ref` wins. The Pi only "owns" the motor if the start command came from the Pi; pressing the local start button reverts to the pot.
+2. **Start/stop edge detection** — `start_stop_RPi` is treated as level, but only acts on the rising/falling edge (`start_stop_RPi && !start_stop_RPi_prev`). Repeated `"true"` payloads from Node-Red don't re-trigger.
+3. **PI + feed-forward controller** — `ctrl = P*error + I_action*∫error + feed_forward`, integral anti-windup clamped to ±10, output saturated to 0–100 % duty, written via Timer4 fast PWM on pin D6 at ~23 kHz.
+4. **Velocity sensing** — an ISR on pin 7 increments `encoderValue` and computes the instantaneous `vel = 1/dt`; this is smoothed by `velMovingAvg` and divided by 3 before being fed to the controller as `control_vel`.
+
+### Things to be aware of
+- **Field order is load-bearing.** If you add a new gain on the Pi side, you must add the matching `rxObj` on the Arduino in the same position, or every following field shifts and gets garbage.
+- **`delay(1 / 500)` in the Arduino main loop is `delay(0)`** — integer division. The loop runs as fast as it can, not at 500 Hz.
+- **`config1kHzLoop` is defined but never called** — the 1 kHz timer ISR scaffolding is dead code right now. Control runs in the main loop, not on a timer interrupt.
+- **`deltaTmain` uses millisecond resolution** via `millis()`, so the integral term's step size jitters by ±1 ms per loop iteration.
+- **No integral reset when switching pot↔Pi** — only on stop and on `vel_ref < 0.1`. Quickly toggling sources mid-run will carry integral history across.
+
 ## Arduino Installation
 ### Install libraries
 Using the Arduino IDE library manager, install the following libraries:
@@ -97,7 +134,6 @@ so if want to kill the Spit program, I would do
 `kill 2102`. You can then run the `grep` command again to check if it is indeed killed.
 
 ## TODO
-- Fix I_action = float(msg.payload.decode()) -> ValueError: could not convert string to float: '' -> occurs when in NodeRed we leave the box empty of any value, 
 - Add data logging and replay
 - Add visualization
 - Add sound with speakers
