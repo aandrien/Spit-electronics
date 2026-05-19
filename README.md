@@ -118,7 +118,7 @@ Use `crontab` to make the RPi run the [start script](RPi/bash_scripts/start_spit
 
 Just select `nano` as the editor. Then add the `start_spit.sh` to the boot command:
 
-`@reboot pathToRepo/RPi/bash_scripts/start_spit.sh`
+`@reboot sleep 10 pathToRepo/RPi/bash_scripts/start_spit.sh >> /home/pi/crontab_log.txt 2>&1`
 
 where `pathToRepo` is the path to this repository.
 
