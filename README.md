@@ -95,6 +95,22 @@ For example on usage, see the [Python script in this repository](RPi/Spit_RPi_Ar
 ### Installing Node-Red
 It is best to follow the instructions from the [node-red source](https://nodered.org/docs/getting-started/raspberrypi#installing-and-upgrading-node-red). Be sure to make it [autostart on boot](https://nodered.org/docs/getting-started/raspberrypi#autostart-on-boot). The editor can then be accessed in a [webbrowser](https://nodered.org/docs/getting-started/raspberrypi#opening-the-editor).
 
+#### Point Node-Red at the repo flow
+By default Node-Red reads and writes its flow from `~/.node-red/flows.json`, so the [flow checked into this repo](RPi/node-red) is ignored unless you tell Node-Red to use it. Edit `~/.node-red/settings.js` and set:
+
+```js
+flowFile: 'pathToRepo/RPi/node-red/flows.json',
+credentialsFile: 'pathToRepo/RPi/node-red/flows_cred.json',
+```
+
+where `pathToRepo` is the absolute path to this repository. Then restart Node-Red:
+
+`sudo systemctl restart nodered.service`
+
+Every Deploy in the browser now writes straight into the repo file, so `git diff` shows your flow changes. The rest of the Node-Red state (`settings.js`, installed palette nodes, sessions) stays in `~/.node-red/` and out of the repo.
+
+Note: `flows_cred.json` is encrypted, but the key lives in `settings.js`. Only commit `flows_cred.json` if you're certain none of your flow credentials are sensitive.
+
 ### Autostart Python script on boot
 Use `crontab` to make the RPi run the [start script](RPi/bash_scripts/start_spit.sh) on boot. First open `crontab`:
 
