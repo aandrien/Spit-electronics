@@ -160,6 +160,8 @@ so if want to kill the Spit program, I would do
 `kill 2102`. You can then run the `grep` command again to check if it is indeed killed.
 
 ## TODO
+- Add ramp on each (large) setpoint change
+- point node-red to correct flow.json. Settings file seems to get overwritten? Maybe edit via terminal instead of SFTP Bitvise
 - Add data logging and replay
 - Add visualization
 - Add sound with speakers
