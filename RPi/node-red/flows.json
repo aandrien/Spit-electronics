@@ -302,8 +302,8 @@
         "outputs": 1,
         "useDifferentColor": false,
         "className": "",
-        "x": 710,
-        "y": 340,
+        "x": 730,
+        "y": 360,
         "wires": [
             []
         ]
@@ -747,6 +747,27 @@
         "wires": [
             [
                 "70c755b8ca6c5b9c"
+            ]
+        ]
+    },
+    {
+        "id": "f8b0ae32c4c2d933",
+        "type": "mqtt in",
+        "z": "f9e17605cf3ed006",
+        "name": "vel_ref_sent",
+        "topic": "mqtt/rpi/vel_ref_sent",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "777307716499796d",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 690,
+        "y": 100,
+        "wires": [
+            [
+                "d0b5f14c0b33f71c"
             ]
         ]
     }

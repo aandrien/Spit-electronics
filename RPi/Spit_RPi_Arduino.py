@@ -9,6 +9,7 @@ hostname = "localhost"
 broker_port = 1883
 send_measured_num_rounds = "mqtt/rpi/num_rounds"
 send_measured_vel_topic = "mqtt/rpi/vel_measured"
+send_vel_ref_topic = "mqtt/rpi/vel_ref_sent"
 receive_vel_ref_topic = "mqtt/rpi/rx/vel_ref"
 receive_startstop_topic = "mqtt/rpi/rx/start_stop"
 receive_p_gain_topic = "mqtt/rpi/rx/p_gain"
@@ -34,12 +35,25 @@ if receive_client.connect("localhost", broker_port, 60) != 0:
 
 message = str([])
 send_client.publish(send_measured_vel_topic, message)
+send_client.publish(send_vel_ref_topic, str(0.0))
 
 start_stop = 0
 vel_ref = 0.0
+vel_ref_target = 0.0
 P_gain = 2.0
 I_action = 10.0
 feed_forward = 10.0
+
+# Soft-start ramp: when the user toggles start while measured velocity is far
+# from the target, vel_ref is ramped from the current measured value up to
+# vel_ref_target at RAMP_RATE units/sec instead of stepping there immediately.
+RAMP_RATE = 10.0
+RAMP_TRIGGER_GAP = 1.0
+RAMP_STEP_INTERVAL = 0.05
+
+prev_start_stop = 0
+ramping = False
+last_ramp_time = 0.0
 
 def sendData():
     sendSize = 0
@@ -83,12 +97,61 @@ def make_float_handler(var_name, lo=None, hi=None):
         sendData()
     return handler
 
+def publish_vel_ref_sent():
+    send_client.publish(send_vel_ref_topic, str(vel_ref))
+
+def message_handling_vel_ref(client, userdata, msg):
+    global vel_ref, vel_ref_target
+    payload = msg.payload.decode().strip()
+    if payload == "":
+        return
+    vel_ref_target = float(payload)
+    if not ramping:
+        vel_ref = vel_ref_target
+        publish_vel_ref_sent()
+        sendData()
+
 def message_handling_start_stop(client, userdata, msg):
-    global start_stop
+    global start_stop, prev_start_stop, vel_ref, ramping, last_ramp_time
     start_stop = 1 if msg.payload.decode() == "true" else 0
+
+    if start_stop == 1 and prev_start_stop == 0:
+        if abs(vel_ref_target - vel_measured) > RAMP_TRIGGER_GAP:
+            vel_ref = max(vel_measured, 0.0)
+            ramping = True
+            last_ramp_time = time.time()
+        else:
+            vel_ref = vel_ref_target
+            ramping = False
+        publish_vel_ref_sent()
+    elif start_stop == 0:
+        ramping = False
+
+    prev_start_stop = start_stop
     sendData()
 
-message_handling_vel_ref      = make_float_handler("vel_ref")
+def ramp_step():
+    global vel_ref, ramping, last_ramp_time
+    if not ramping:
+        return
+    now = time.time()
+    dt = now - last_ramp_time
+    if dt < RAMP_STEP_INTERVAL:
+        return
+    last_ramp_time = now
+
+    step = RAMP_RATE * dt
+    diff = vel_ref_target - vel_ref
+    if abs(diff) <= step:
+        vel_ref = vel_ref_target
+        ramping = False
+    elif diff > 0:
+        vel_ref += step
+    else:
+        vel_ref -= step
+    sendData()
+    publish_vel_ref_sent()
+
 message_handling_P_gain       = make_float_handler("P_gain", 0.0, 5.0)
 message_handling_I_action     = make_float_handler("I_action", 0.0, 15.0)
 message_handling_feed_forward = make_float_handler("feed_forward")
@@ -135,14 +198,8 @@ if __name__ == '__main__':
             if sim_enabled == "sim":
                 print("Simulation mode")
         while True:
-            ###################################################################
-            # Transmit all the data to send in a single packet
-            ###################################################################
-            
-            # send_size = 0
-            ###################################################################
-            # Receive a float
-            ###################################################################
+            ramp_step()
+
             if link.available():
                 
                 
