@@ -15,6 +15,8 @@ Both sides use the SerialTransfer protocol over `/dev/ttyACM0` at 115200 baud �
 ### Pi → Arduino (commands)
 The Pi re-sends the *whole* packet on every incoming MQTT message (`sendData()` in the Python script). So if you only tweak the I-gain in Node-Red, the Arduino still gets the unchanged P, feed-forward, and start/stop values too.
 
+`vel_ref` is also rate-limited on the Pi side before it goes out — see [Setpoint ramping](#setpoint-ramping) below.
+
 | Offset | Field          | Type   | Pi source                | Arduino sink         |
 |--------|----------------|--------|--------------------------|----------------------|
 | 0      | `vel_ref`      | float  | Node-Red slider          | `vel_ref_receive`    |
@@ -38,6 +40,16 @@ The Pi divides the encoder count by 305 to get `num_rounds` and republishes both
 2. **Start/stop edge detection** — `start_stop_RPi` is treated as level, but only acts on the rising/falling edge (`start_stop_RPi && !start_stop_RPi_prev`). Repeated `"true"` payloads from Node-Red don't re-trigger.
 3. **PI + feed-forward controller** — `ctrl = P*error + I_action*∫error + feed_forward`, integral anti-windup clamped to ±10, output saturated to 0–100 % duty, written via Timer4 fast PWM on pin D6 at ~23 kHz.
 4. **Velocity sensing** — an ISR on pin 7 increments `encoderValue` and computes the instantaneous `vel = 1/dt`; this is smoothed by `velMovingAvg` and divided by 3 before being fed to the controller as `control_vel`.
+
+### Setpoint ramping
+To avoid jolts when the motor would otherwise see a step change, the Python script ramps `vel_ref` toward the slider value (`vel_ref_target`) at `RAMP_RATE` units/sec instead of sending the new setpoint immediately. Two triggers:
+
+- **On Start** (`start_stop` rising edge): if the gap between `vel_ref_target` and the measured velocity exceeds `RAMP_TRIGGER_GAP`, `vel_ref` is reset to 0 and ramped up from there. Small gaps step straight to the target.
+- **While running**: if a new slider value differs from the current `vel_ref` by more than `RAMP_TRIGGER_GAP`, the script ramps from the current `vel_ref` to the new target (both directions). Small changes step through immediately.
+
+If the slider moves again mid-ramp, only `vel_ref_target` updates — the in-flight ramp re-aims at the new target on the next step instead of restarting.
+
+Constants live near the top of [`Spit_RPi_Arduino.py`](RPi/Spit_RPi_Arduino.py): `RAMP_RATE` (units/sec), `RAMP_TRIGGER_GAP` (deadband, units), `RAMP_STEP_INTERVAL` (seconds between steps). The Arduino itself does no ramping — if the local pot is the source, the controller sees raw pot values.
 
 ### Things to be aware of
 - **Field order is load-bearing.** If you add a new gain on the Pi side, you must add the matching `rxObj` on the Arduino in the same position, or every following field shifts and gets garbage.
@@ -160,7 +172,6 @@ so if want to kill the Spit program, I would do
 `kill 2102`. You can then run the `grep` command again to check if it is indeed killed.
 
 ## TODO
-- Add ramp on each (large) setpoint change
 - point node-red to correct flow.json. Settings file seems to get overwritten? Maybe edit via terminal instead of SFTP Bitvise
 - Add data logging and replay
 - Add visualization

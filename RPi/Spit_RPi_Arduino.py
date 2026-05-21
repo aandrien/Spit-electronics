@@ -44,9 +44,10 @@ P_gain = 2.0
 I_action = 10.0
 feed_forward = 0.0
 
-# Soft-start ramp: when the user toggles start while measured velocity is far
-# from the target, vel_ref is ramped from the current measured value up to
-# vel_ref_target at RAMP_RATE units/sec instead of stepping there immediately.
+# Ramp: on Start, vel_ref ramps from 0 up to vel_ref_target. While running,
+# a setpoint change larger than RAMP_TRIGGER_GAP ramps from the current
+# vel_ref toward the new target at RAMP_RATE units/sec; smaller changes step
+# through immediately.
 RAMP_RATE = 25.0
 RAMP_TRIGGER_GAP = 1.0
 RAMP_STEP_INTERVAL = 0.05
@@ -101,12 +102,20 @@ def publish_vel_ref_sent():
     send_client.publish(send_vel_ref_topic, str(vel_ref))
 
 def message_handling_vel_ref(client, userdata, msg):
-    global vel_ref, vel_ref_target
+    global vel_ref, vel_ref_target, ramping, last_ramp_time
     payload = msg.payload.decode().strip()
     if payload == "":
         return
     vel_ref_target = float(payload)
-    if not ramping:
+
+    if ramping:
+        # An in-progress ramp will re-aim at the new target on the next ramp_step.
+        return
+
+    if start_stop == 1 and abs(vel_ref_target - vel_ref) > RAMP_TRIGGER_GAP:
+        ramping = True
+        last_ramp_time = time.time()
+    else:
         vel_ref = vel_ref_target
         publish_vel_ref_sent()
         sendData()
