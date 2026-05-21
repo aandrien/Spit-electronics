@@ -118,7 +118,7 @@ Use `pip` to install the paho-mqtt library:
 
 `pip install paho-mqtt`
 
-For example on usage, see the [Python script in this repository](RPi/Spit_RPi_Arduino_V3.py). For more information and explanation, see https://medium.com/@potekh.anastasia/a-beginners-guide-to-mqtt-understanding-mqtt-mosquitto-broker-and-paho-python-mqtt-client-990822274923.
+For example on usage, see the [Python script in this repository](RPi/Spit_RPi_Arduino.py). For more information and explanation, see https://medium.com/@potekh.anastasia/a-beginners-guide-to-mqtt-understanding-mqtt-mosquitto-broker-and-paho-python-mqtt-client-990822274923.
 
 ### Installing Node-Red
 It is best to follow the instructions from the [node-red source](https://nodered.org/docs/getting-started/raspberrypi#installing-and-upgrading-node-red). Be sure to make it [autostart on boot](https://nodered.org/docs/getting-started/raspberrypi#autostart-on-boot). The editor can then be accessed in a [webbrowser](https://nodered.org/docs/getting-started/raspberrypi#opening-the-editor).
@@ -183,7 +183,7 @@ where `CodeYouFound` is of course the code you found in the previous step.
 For instance, when running the `grep` command I get
 ```
 pi          1160       1  0 20:42 ?        00:00:00 /usr/bin/python3 /usr/share/system-config-printer/applet.py
-pi          2102    2085 67 21:18 pts/0    00:00:04 python3 ../Spit_RPi_Arduino_V3.py
+pi          2102    2085 67 21:18 pts/0    00:00:04 python3 ../Spit_RPi_Arduino.py
 pi          2119    1566  0 21:18 pts/0    00:00:00 grep --color=auto python
 ```
 so if want to kill the Spit program, I would do

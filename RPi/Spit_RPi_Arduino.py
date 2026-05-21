@@ -179,7 +179,7 @@ receive_client.subscribe(receive_topic)
 
 if __name__ == '__main__':
     try:
-        while ~USB_connection_started and USB_connect_attemps <= USB_max_connect_attemps:
+        while not USB_connection_started and USB_connect_attemps <= USB_max_connect_attemps:
             try:
                 link = txfer.SerialTransfer('/dev/ttyACM0')
                 link.open()
@@ -192,7 +192,7 @@ if __name__ == '__main__':
             else:
                 break
         
-        if ~USB_connection_started and USB_connect_attemps >= 1:
+        if not USB_connection_started and USB_connect_attemps >= 1:
             print("Could not connect to Arduino via USB, stopping program.")
             exit(0)
         print("Starting MQTT receive")
