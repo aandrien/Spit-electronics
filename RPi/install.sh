@@ -2,8 +2,28 @@
 # Set up Spit-electronics on a Raspberry Pi.
 # Assumes Node-Red is already installed (run nodered.org installer first if not).
 # Safe to re-run.
+#
+# Usage:
+#   ./RPi/install.sh              # configure Spit; apt update only (no upgrade)
+#   ./RPi/install.sh --upgrade    # also run `apt upgrade -y` (system-wide)
 
 set -euo pipefail
+
+RUN_UPGRADE=0
+for arg in "$@"; do
+  case "$arg" in
+    --upgrade) RUN_UPGRADE=1 ;;
+    -h|--help)
+      sed -n '2,9p' "$0"
+      exit 0
+      ;;
+    *)
+      echo "!! Unknown argument: $arg"
+      sed -n '2,9p' "$0"
+      exit 1
+      ;;
+  esac
+done
 
 SCRIPT_DIR="$(cd "$(dirname "$(realpath "$0")")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -19,9 +39,14 @@ fi
 
 echo "==> Spit install from $REPO_ROOT"
 
-echo "==> apt update & upgrade"
+echo "==> apt update"
 sudo apt update
-sudo apt upgrade -y
+if [ "$RUN_UPGRADE" -eq 1 ]; then
+  echo "==> apt upgrade (system-wide, slow)"
+  sudo apt upgrade -y
+else
+  echo "    (skipping apt upgrade; pass --upgrade to run it)"
+fi
 
 echo "==> Installing Mosquitto"
 sudo apt install -y mosquitto mosquitto-clients

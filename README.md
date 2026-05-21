@@ -82,6 +82,8 @@ cd ~/Documents/Spit-electronics
 
 It installs Mosquitto and the Python deps, points Node-Red at the repo flow file, and adds the `start_spit.sh` boot entry to crontab. It's idempotent — safe to re-run after a `git pull`.
 
+By default it does *not* run `apt upgrade`. Pass `--upgrade` if you want a full system upgrade as part of the install: `./RPi/install.sh --upgrade`.
+
 **Prerequisite**: Node-Red must already be installed. If it isn't, run the [official installer](https://nodered.org/docs/getting-started/raspberrypi#installing-and-upgrading-node-red), then re-run `install.sh`.
 
 The rest of this section documents what the script does, in case you want to do it by hand or debug a step.

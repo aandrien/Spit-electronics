@@ -207,6 +207,9 @@ if __name__ == '__main__':
             if sim_enabled == "sim":
                 print("Simulation mode")
         while True:
+            # 1 kHz poll — 20x faster than the Arduino's 50 ms telemetry interval.
+            # Without this the loop pegs a CPU core busy-waiting on link.available().
+            time.sleep(0.001)
             ramp_step()
 
             if link.available():
