@@ -9,6 +9,7 @@ hostname = "localhost"
 broker_port = 1883
 send_measured_num_rounds = "mqtt/rpi/num_rounds"
 send_measured_vel_topic = "mqtt/rpi/vel_measured"
+send_vel_ref_topic = "mqtt/rpi/vel_ref_sent"
 receive_vel_ref_topic = "mqtt/rpi/rx/vel_ref"
 receive_startstop_topic = "mqtt/rpi/rx/start_stop"
 receive_p_gain_topic = "mqtt/rpi/rx/p_gain"
@@ -34,12 +35,26 @@ if receive_client.connect("localhost", broker_port, 60) != 0:
 
 message = str([])
 send_client.publish(send_measured_vel_topic, message)
+send_client.publish(send_vel_ref_topic, str(0.0))
 
 start_stop = 0
 vel_ref = 0.0
+vel_ref_target = 0.0
 P_gain = 2.0
 I_action = 10.0
-feed_forward = 10.0
+feed_forward = 0.0
+
+# Ramp: on Start, vel_ref ramps from 0 up to vel_ref_target. While running,
+# a setpoint change larger than RAMP_TRIGGER_GAP ramps from the current
+# vel_ref toward the new target at RAMP_RATE units/sec; smaller changes step
+# through immediately.
+RAMP_RATE = 25.0
+RAMP_TRIGGER_GAP = 1.0
+RAMP_STEP_INTERVAL = 0.05
+
+prev_start_stop = 0
+ramping = False
+last_ramp_time = 0.0
 
 def sendData():
     sendSize = 0
@@ -71,62 +86,84 @@ def sendData():
 
     link.send(sendSize)
 
-def message_handling_start_stop(client, userdata, msg):
-    # Define global variable to be able to modify it in function
-    global start_stop
+def make_float_handler(var_name, lo=None, hi=None):
+    def handler(client, userdata, msg):
+        payload = msg.payload.decode().strip()
+        if payload == "":
+            return
+        value = float(payload)
+        if lo is not None:
+            value = min(max(value, lo), hi)
+        globals()[var_name] = value
+        sendData()
+    return handler
 
-    # Decode payload coming from MQTT node
-    if msg.payload.decode() == "true":
-        start_stop = 1
-    else:
-        start_stop = 0
-
-    # print("startstop: ", start_stop)
-
-    # Send all data
-    sendData()
+def publish_vel_ref_sent():
+    send_client.publish(send_vel_ref_topic, str(vel_ref))
 
 def message_handling_vel_ref(client, userdata, msg):
-    # Define global variable to be able to modify it in function
-    global vel_ref
+    global vel_ref, vel_ref_target, ramping, last_ramp_time
+    payload = msg.payload.decode().strip()
+    if payload == "":
+        return
+    vel_ref_target = float(payload)
 
-    # Decode payload coming from MQTT node
-    vel_ref = float(msg.payload.decode())
+    if ramping:
+        # An in-progress ramp will re-aim at the new target on the next ramp_step.
+        return
 
-    # Send all data
+    if start_stop == 1 and abs(vel_ref_target - vel_ref) > RAMP_TRIGGER_GAP:
+        ramping = True
+        last_ramp_time = time.time()
+    else:
+        vel_ref = vel_ref_target
+        publish_vel_ref_sent()
+        sendData()
+
+def message_handling_start_stop(client, userdata, msg):
+    global start_stop, prev_start_stop, vel_ref, ramping, last_ramp_time
+    start_stop = 1 if msg.payload.decode() == "true" else 0
+
+    if start_stop == 1 and prev_start_stop == 0:
+        if abs(vel_ref_target - vel_measured) > RAMP_TRIGGER_GAP:
+            vel_ref = 0.0
+            ramping = True
+            last_ramp_time = time.time()
+        else:
+            vel_ref = vel_ref_target
+            ramping = False
+        publish_vel_ref_sent()
+    elif start_stop == 0:
+        ramping = False
+
+    prev_start_stop = start_stop
     sendData()
 
-def message_handling_P_gain(client, userdata, msg):
-    # Define global variable to be able to modify it in function
-    global P_gain
+def ramp_step():
+    global vel_ref, ramping, last_ramp_time
+    if not ramping:
+        return
+    now = time.time()
+    dt = now - last_ramp_time
+    if dt < RAMP_STEP_INTERVAL:
+        return
+    last_ramp_time = now
 
-    # Decode payload coming from MQTT node
-    P_gain = float(msg.payload.decode())
-    P_gain = min(max(P_gain, 0.0), 5.0)
-
-    # Send all data
+    step = RAMP_RATE * dt
+    diff = vel_ref_target - vel_ref
+    if abs(diff) <= step:
+        vel_ref = vel_ref_target
+        ramping = False
+    elif diff > 0:
+        vel_ref += step
+    else:
+        vel_ref -= step
     sendData()
+    publish_vel_ref_sent()
 
-def message_handling_I_action(client, userdata, msg):
-    # Define global variable to be able to modify it in function
-    global I_action
-
-    # Decode payload coming from MQTT node
-    I_action = float(msg.payload.decode())
-    I_action = min(max(I_action, 0.0), 15.0)
-
-    # Send all data
-    sendData()
-
-def message_handling_feed_forward(client, userdata, msg):
-    # Define global variable to be able to modify it in function
-    global feed_forward
-
-    # Decode payload coming from MQTT node
-    feed_forward = float(msg.payload.decode())
-    # print("feed-forward: ", feed_forward)
-    # Send all data
-    sendData()
+message_handling_P_gain       = make_float_handler("P_gain", 0.0, 5.0)
+message_handling_I_action     = make_float_handler("I_action", 0.0, 15.0)
+message_handling_feed_forward = make_float_handler("feed_forward")
 
 USB_connection_started = False # flag to check USB connection has been made
 USB_max_connect_attemps = 20
@@ -142,7 +179,7 @@ receive_client.subscribe(receive_topic)
 
 if __name__ == '__main__':
     try:
-        while ~USB_connection_started and USB_connect_attemps <= USB_max_connect_attemps:
+        while not USB_connection_started and USB_connect_attemps <= USB_max_connect_attemps:
             try:
                 link = txfer.SerialTransfer('/dev/ttyACM0')
                 link.open()
@@ -155,7 +192,7 @@ if __name__ == '__main__':
             else:
                 break
         
-        if ~USB_connection_started and USB_connect_attemps >= 1:
+        if not USB_connection_started and USB_connect_attemps >= 1:
             print("Could not connect to Arduino via USB, stopping program.")
             exit(0)
         print("Starting MQTT receive")
@@ -170,14 +207,11 @@ if __name__ == '__main__':
             if sim_enabled == "sim":
                 print("Simulation mode")
         while True:
-            ###################################################################
-            # Transmit all the data to send in a single packet
-            ###################################################################
-            
-            # send_size = 0
-            ###################################################################
-            # Receive a float
-            ###################################################################
+            # 1 kHz poll — 20x faster than the Arduino's 50 ms telemetry interval.
+            # Without this the loop pegs a CPU core busy-waiting on link.available().
+            time.sleep(0.001)
+            ramp_step()
+
             if link.available():
                 
                 
