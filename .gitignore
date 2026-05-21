@@ -1,0 +1,6 @@
+# Node-Red's atomic-write backup files (regenerated on every Deploy)
+RPi/node-red/.flows.json.backup
+RPi/node-red/.flows_cred.json.backup
+
+# Local Claude Code per-user settings
+.claude/

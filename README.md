@@ -72,6 +72,20 @@ The Arduino installation is just uploading the latest version in the [Arduino fo
 ## Raspberry Pi Installation
 For the raspberry pi to run correctly, we need to install a few things.
 
+### Quick start: `install.sh`
+After cloning the repo on the Pi, run the install script as the `pi` user:
+
+```bash
+cd ~/Documents/Spit-electronics
+./RPi/install.sh
+```
+
+It installs Mosquitto and the Python deps, points Node-Red at the repo flow file, and adds the `start_spit.sh` boot entry to crontab. It's idempotent — safe to re-run after a `git pull`.
+
+**Prerequisite**: Node-Red must already be installed. If it isn't, run the [official installer](https://nodered.org/docs/getting-started/raspberrypi#installing-and-upgrading-node-red), then re-run `install.sh`.
+
+The rest of this section documents what the script does, in case you want to do it by hand or debug a step.
+
 ### Installing Mosquitto broker
 Run the following command to upgrade and update your system:
 
@@ -119,7 +133,9 @@ where `pathToRepo` is the absolute path to this repository. Then restart Node-Re
 
 `sudo systemctl restart nodered.service`
 
-Every Deploy in the browser now writes straight into the repo file, so `git diff` shows your flow changes. The rest of the Node-Red state (`settings.js`, installed palette nodes, sessions) stays in `~/.node-red/` and out of the repo.
+Every Deploy in the browser now writes straight into the repo file, so `git diff` shows your flow changes. The rest of the Node-Red state (`settings.js`, installed palette nodes, sessions) stays in `~/.node-red/` and out of the repo. Edit `settings.js` over SSH (e.g. with `nano`), not via SFTP — uploading from a local mirror is a known way to silently revert the `flowFile` line.
+
+Node-Red also writes `.flows.json.backup` and `.flows_cred.json.backup` next to the flow file on every Deploy (its one-step undo). Both are `.gitignore`d.
 
 Note: `flows_cred.json` is encrypted, but the key lives in `settings.js`. Only commit `flows_cred.json` if you're certain none of your flow credentials are sensitive.
 
@@ -172,7 +188,6 @@ so if want to kill the Spit program, I would do
 `kill 2102`. You can then run the `grep` command again to check if it is indeed killed.
 
 ## TODO
-- point node-red to correct flow.json. Settings file seems to get overwritten? Maybe edit via terminal instead of SFTP Bitvise
 - Add data logging and replay
 - Add visualization
 - Add sound with speakers
