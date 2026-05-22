@@ -1306,7 +1306,8 @@
         "y": 760,
         "wires": [
             [
-                "dead0c1d2e3f0004"
+                "dead0c1d2e3f0004",
+                "dead0c1d2e3f0010"
             ]
         ]
     },
@@ -1504,5 +1505,117 @@
                 "dead0c1d2e3f000d"
             ]
         ]
+    },
+    {
+        "id": "dead0c1d2e3f0011",
+        "type": "mqtt out",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "topic": "mqtt/rpi/rx/pos_I_action",
+        "qos": "2",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "777307716499796d",
+        "x": 1430,
+        "y": 1000,
+        "wires": []
+    },
+    {
+        "id": "dead0c1d2e3f0012",
+        "type": "ui_text_input",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "label": "Pos I action",
+        "tooltip": "Integral gain on the outer position loop. Eliminates steady-state error so you can lower pos_P_gain without losing accuracy. Anti-windup is built in.",
+        "group": "380840898e423db0",
+        "order": 18,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "mode": "number",
+        "delay": 300,
+        "topic": "topic",
+        "sendOnBlur": true,
+        "className": "",
+        "topicType": "msg",
+        "x": 1080,
+        "y": 1000,
+        "wires": [
+            [
+                "dead0c1d2e3f0011"
+            ]
+        ]
+    },
+    {
+        "id": "dead0c1d2e3f0013",
+        "type": "mqtt in",
+        "z": "f9e17605cf3ed006",
+        "name": "pos_I_action_current",
+        "topic": "mqtt/rpi/pos_I_action_current",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "777307716499796d",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 840,
+        "y": 1000,
+        "wires": [
+            [
+                "dead0c1d2e3f0012"
+            ]
+        ]
+    },
+    {
+        "id": "dead0c1d2e3f0010",
+        "type": "function",
+        "z": "f9e17605cf3ed006",
+        "name": "wrap pos_ref to 0-360",
+        "func": "let a = parseFloat(msg.payload);\nif (isNaN(a)) return null;\nmsg.payload = ((a % 360) + 360) % 360;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 500,
+        "y": 380,
+        "wires": [
+            [
+                "dead0c1d2e3f0014"
+            ]
+        ]
+    },
+    {
+        "id": "dead0c1d2e3f0014",
+        "type": "ui_gauge",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "group": "a55b0b6cdaaca03d",
+        "order": 5,
+        "width": 0,
+        "height": 0,
+        "gtype": "compass",
+        "title": "Pos target",
+        "label": "deg",
+        "format": "{{value | number:1}}",
+        "min": 0,
+        "max": 360,
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "",
+        "seg2": "",
+        "className": "",
+        "x": 740,
+        "y": 380,
+        "wires": []
     }
 ]

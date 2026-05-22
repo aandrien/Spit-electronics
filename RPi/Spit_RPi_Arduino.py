@@ -30,6 +30,7 @@ receive_pos_ref_deg_topic = "mqtt/rpi/rx/pos_ref_deg"
 receive_pos_P_gain_topic = "mqtt/rpi/rx/pos_P_gain"
 receive_pos_max_vel_topic = "mqtt/rpi/rx/pos_max_vel"
 receive_pos_max_accel_topic = "mqtt/rpi/rx/pos_max_accel"
+receive_pos_I_action_topic = "mqtt/rpi/rx/pos_I_action"
 receive_topic = "mqtt/rpi/rx/#"
 
 # Retained "current value" topics — the dashboard subscribes to these so the
@@ -45,6 +46,7 @@ CURRENT_TOPICS = {
     "pos_P_gain":     "mqtt/rpi/pos_P_gain_current",
     "pos_max_vel":    "mqtt/rpi/pos_max_vel_current",
     "pos_max_accel":  "mqtt/rpi/pos_max_accel_current",
+    "pos_I_action":   "mqtt/rpi/pos_I_action_current",
 }
 
 send_client = paho.Client()
@@ -71,6 +73,7 @@ zero_count = 0
 control_mode = 0
 pos_ref_deg = 0.0
 pos_P_gain = 0.05
+pos_I_action = 0.0   # integral gain on the outer position loop; off by default (set on dashboard)
 pos_max_vel = 30.0
 pos_max_accel = 25.0  # vel-units/sec slew on the position-loop output; matches Pi-side RAMP_RATE in velocity mode
 
@@ -151,6 +154,7 @@ def sendData():
     sendSize = link.tx_obj(pos_P_gain,     start_pos=sendSize)
     sendSize = link.tx_obj(pos_max_vel,    start_pos=sendSize)
     sendSize = link.tx_obj(pos_max_accel,  start_pos=sendSize)
+    sendSize = link.tx_obj(pos_I_action,   start_pos=sendSize)
 
     link.send(sendSize)
 
@@ -189,6 +193,7 @@ PERSISTED_VARS = [
     ("pos_P_gain",     0.0,    10.0),
     ("pos_max_vel",    0.0,    1000.0),
     ("pos_max_accel",  0.1,    1000.0),
+    ("pos_I_action",   0.0,    10.0),
 ]
 
 def load_settings():
@@ -318,6 +323,7 @@ message_handling_pos_ref_deg   = make_float_handler("pos_ref_deg", -36000.0, 360
 message_handling_pos_P_gain    = make_float_handler("pos_P_gain", 0.0, 10.0)
 message_handling_pos_max_vel   = make_float_handler("pos_max_vel", 0.0, 1000.0)
 message_handling_pos_max_accel = make_float_handler("pos_max_accel", 0.1, 1000.0)
+message_handling_pos_I_action  = make_float_handler("pos_I_action", 0.0, 10.0)
 
 def message_handling_control_mode(client, userdata, msg):
     """Switch between velocity (0) and position (1) mode. Snaps the new
@@ -392,6 +398,7 @@ receive_client.message_callback_add(receive_pos_ref_deg_topic, message_handling_
 receive_client.message_callback_add(receive_pos_P_gain_topic, message_handling_pos_P_gain)
 receive_client.message_callback_add(receive_pos_max_vel_topic, message_handling_pos_max_vel)
 receive_client.message_callback_add(receive_pos_max_accel_topic, message_handling_pos_max_accel)
+receive_client.message_callback_add(receive_pos_I_action_topic, message_handling_pos_I_action)
 
 receive_client.subscribe(receive_topic)
 

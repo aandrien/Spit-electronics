@@ -150,13 +150,17 @@ uint8_t direction_target = 0;  // desired direction the latch is trying to apply
 uint8_t control_mode_RPi = 0;
 long pos_ref_counts = 0;
 float pos_P_gain = 0.05;
+float pos_I_action = 0.0;    // integral gain on the outer position loop
 float pos_max_vel = 30.0;
 float pos_max_accel = 25.0;  // vel-units / second slew limit on the position-loop output
 
 // Slew-rate state for position mode. vel_mag_smooth is the rate-limited magnitude
 // of the position-loop's velocity output that actually drives the inner velocity
-// PID. Resets to 0 the moment we enter position mode so it starts cleanly.
+// PID. pos_error_integral accumulates pos_error * dt for the I term, with
+// anti-windup applied to bound its contribution to ±pos_max_vel. Both reset
+// to 0 the moment we enter position mode so it starts cleanly.
 float vel_mag_smooth = 0.0;
+float pos_error_integral = 0.0;
 unsigned long lastPosLoopTime = 0;
 uint8_t control_mode_prev = 0;
 
@@ -224,36 +228,50 @@ void loop() {
     recSize = myTransfer.rxObj(pos_P_gain, recSize);
     recSize = myTransfer.rxObj(pos_max_vel, recSize);
     recSize = myTransfer.rxObj(pos_max_accel, recSize);
+    recSize = myTransfer.rxObj(pos_I_action, recSize);
   }
 
   // Mode-dependent computation of direction_target and vel_ref_pi.
   // The existing velocity PID and direction-flip latch downstream are
   // identical for both modes — they just consume different inputs.
   if (control_mode_RPi == 1) {
-    // Position mode: outer P controller. Signed velocity target from pos error.
-    long pos_error = pos_ref_counts - encoderValue;
-    float vel_signed = (float)pos_error * pos_P_gain;
-    if (vel_signed >  pos_max_vel) vel_signed =  pos_max_vel;
-    if (vel_signed < -pos_max_vel) vel_signed = -pos_max_vel;
-
-    direction_target = (vel_signed >= 0) ? 0 : 1;
-
-    // Slew-rate-limit the magnitude fed to the inner velocity PID. Two purposes:
-    //   1. Smooth acceleration when the user moves pos_ref far away (no step
-    //      jump to pos_max_vel; rises at pos_max_accel until it gets there).
-    //   2. Smooth deceleration into the target and around any near-target
-    //      encoder jitter — vel_mag_smooth can't snap, so brief sign flips
-    //      in vel_signed don't produce rapid motor twitching.
-    // The slew target is 0 whenever the direction pin doesn't match yet, so
-    // we decelerate during the latch wait and accelerate cleanly afterward.
+    // Position mode: outer PI controller with anti-windup, fed through a
+    // slew-rate-limited magnitude to the inner velocity PID.
     unsigned long now_pos_ms = millis();
     if (control_mode_prev == 0) {
       vel_mag_smooth = 0.0;
+      pos_error_integral = 0.0;
       lastPosLoopTime = now_pos_ms;
     }
     float dt_pos = (now_pos_ms - lastPosLoopTime) / 1000.0;
     lastPosLoopTime = now_pos_ms;
 
+    long pos_error = pos_ref_counts - encoderValue;
+    pos_error_integral += (float)pos_error * dt_pos;
+
+    // Anti-windup: bound the integral so its contribution is at most
+    // ±pos_max_vel. With I disabled (gain ~0), just zero it — no point
+    // accumulating something we won't use.
+    if (pos_I_action > 1e-6) {
+      float max_int = pos_max_vel / pos_I_action;
+      if (pos_error_integral >  max_int) pos_error_integral =  max_int;
+      if (pos_error_integral < -max_int) pos_error_integral = -max_int;
+    } else {
+      pos_error_integral = 0.0;
+    }
+
+    float vel_signed = (float)pos_error * pos_P_gain
+                       + pos_error_integral * pos_I_action;
+    if (vel_signed >  pos_max_vel) vel_signed =  pos_max_vel;
+    if (vel_signed < -pos_max_vel) vel_signed = -pos_max_vel;
+
+    direction_target = (vel_signed >= 0) ? 0 : 1;
+
+    // Slew-rate-limit the magnitude fed to the inner velocity PID. Smooth
+    // acceleration on big setpoint moves, smooth deceleration into the target,
+    // and no rapid switching when vel_signed sign-flips on encoder jitter near
+    // the setpoint. The slew target is 0 whenever the direction pin doesn't
+    // match yet, so the spit decelerates cleanly into a turnaround.
     float slew_target = (current_direction == direction_target) ? fabs(vel_signed) : 0.0;
     float max_step = pos_max_accel * dt_pos;
     float diff = slew_target - vel_mag_smooth;
@@ -269,7 +287,8 @@ void loop() {
     // Velocity mode: pass through the Pi's vel_ref and direction unchanged.
     direction_target = direction_RPi;
     vel_ref_pi = vel_ref_receive;
-    vel_mag_smooth = 0.0;  // reset so next entry to position mode starts clean
+    vel_mag_smooth = 0.0;      // reset for clean next entry to position mode
+    pos_error_integral = 0.0;
   }
   control_mode_prev = control_mode_RPi;
 
