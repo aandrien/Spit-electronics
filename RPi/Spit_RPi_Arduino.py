@@ -15,6 +15,7 @@ receive_startstop_topic = "mqtt/rpi/rx/start_stop"
 receive_p_gain_topic = "mqtt/rpi/rx/p_gain"
 receive_i_action_topic = "mqtt/rpi/rx/i_action"
 receive_feed_forward_topic = "mqtt/rpi/rx/feed_forward"
+receive_direction_topic = "mqtt/rpi/rx/direction"
 receive_topic = "mqtt/rpi/rx/#"
 
 send_client = paho.Client()
@@ -43,6 +44,7 @@ vel_ref_target = 0.0
 P_gain = 2.0
 I_action = 10.0
 feed_forward = 0.0
+direction = 0  # 0 = forward, 1 = reverse — drives Arduino directionPin
 
 # Ramp: on Start, vel_ref ramps from 0 up to vel_ref_target. While running,
 # a setpoint change larger than RAMP_TRIGGER_GAP ramps from the current
@@ -80,9 +82,14 @@ def sendData():
     sendSize = link.tx_obj(feed_forward, start_pos=sendSize)
 
     ###################################################################
-    # Send start/stop command
+    # Send start/stop command (uint8 — must match Arduino's uint8_t rxObj)
     ###################################################################
-    sendSize = link.tx_obj(start_stop, start_pos=sendSize)
+    sendSize = link.tx_obj(start_stop, start_pos=sendSize, val_type_override='B')
+
+    ###################################################################
+    # Send direction (0 = forward, 1 = reverse; uint8)
+    ###################################################################
+    sendSize = link.tx_obj(direction, start_pos=sendSize, val_type_override='B')
 
     link.send(sendSize)
 
@@ -165,6 +172,17 @@ message_handling_P_gain       = make_float_handler("P_gain", 0.0, 5.0)
 message_handling_I_action     = make_float_handler("I_action", 0.0, 15.0)
 message_handling_feed_forward = make_float_handler("feed_forward")
 
+def message_handling_direction(client, userdata, msg):
+    global direction
+    payload = msg.payload.decode().strip().lower()
+    if payload in ("true", "1"):
+        direction = 1
+    elif payload in ("false", "0"):
+        direction = 0
+    else:
+        return
+    sendData()
+
 USB_connection_started = False # flag to check USB connection has been made
 USB_max_connect_attemps = 20
 USB_connect_attemps = 0
@@ -174,6 +192,7 @@ receive_client.message_callback_add(receive_startstop_topic, message_handling_st
 receive_client.message_callback_add(receive_p_gain_topic, message_handling_P_gain)
 receive_client.message_callback_add(receive_i_action_topic, message_handling_I_action)
 receive_client.message_callback_add(receive_feed_forward_topic, message_handling_feed_forward)
+receive_client.message_callback_add(receive_direction_topic, message_handling_direction)
 
 receive_client.subscribe(receive_topic)
 

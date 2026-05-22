@@ -135,6 +135,7 @@ uint8_t start_stop_RPi  = 0;
 uint8_t start_stop_RPi_prev = 0;
 bool started_from_RPi = false;
 
+uint8_t direction_RPi = 0;  // 0 = forward (directionPin LOW), 1 = reverse (directionPin HIGH)
 
 float vel_ref_receive = 0.0;
 float P = 2.0;
@@ -183,6 +184,9 @@ void loop() {
     recSize = myTransfer.rxObj(I_action, recSize);
     recSize = myTransfer.rxObj(feed_forward, recSize);
     recSize = myTransfer.rxObj(start_stop_RPi, recSize);
+    recSize = myTransfer.rxObj(direction_RPi, recSize);
+
+    digitalWrite(directionPin, direction_RPi ? HIGH : LOW);
 
     vel_ref_pi = vel_ref_receive;
   }

@@ -380,6 +380,58 @@
         ]
     },
     {
+        "id": "d12e3f4a5b6c7002",
+        "type": "mqtt out",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "topic": "mqtt/rpi/rx/direction",
+        "qos": "2",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "777307716499796d",
+        "x": 700,
+        "y": 520,
+        "wires": []
+    },
+    {
+        "id": "d12e3f4a5b6c7001",
+        "type": "ui_switch",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "label": "FWD / REV",
+        "tooltip": "Spit rotation direction. Forward = directionPin LOW on the Arduino.",
+        "group": "380840898e423db0",
+        "order": 9,
+        "width": "5",
+        "height": "1",
+        "passthru": false,
+        "decouple": "false",
+        "topic": "topic",
+        "topicType": "msg",
+        "style": "",
+        "onvalue": "true",
+        "onvalueType": "bool",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "false",
+        "offvalueType": "bool",
+        "officon": "",
+        "offcolor": "",
+        "animate": true,
+        "className": "",
+        "x": 280,
+        "y": 520,
+        "wires": [
+            [
+                "d12e3f4a5b6c7002"
+            ]
+        ]
+    },
+    {
         "id": "cb743fef2fafd894",
         "type": "mqtt in",
         "z": "f9e17605cf3ed006",

@@ -24,6 +24,9 @@ The Pi re-sends the *whole* packet on every incoming MQTT message (`sendData()` 
 | 8      | `I_action`     | float  | Node-Red (clamped 0–15)  | `I_action`           |
 | 12     | `feed_forward` | float  | Node-Red                 | `feed_forward`       |
 | 16     | `start_stop`   | uint8  | Node-Red bool `"true"`   | `start_stop_RPi`     |
+| 17     | `direction`    | uint8  | Node-Red switch (0/1)    | `direction_RPi` → `directionPin` |
+
+`start_stop` and `direction` are sent with `val_type_override='B'` (unsigned byte) — without that override, pySerialTransfer packs a Python `int` as 4 bytes by default, which would shift every following field by 3 bytes.
 
 ### Arduino → Pi (telemetry)
 Every 50 ms the Arduino sends:
@@ -194,3 +197,5 @@ so if want to kill the Spit program, I would do
 - Add visualization
 - Add sound with speakers
 - Add system identification
+- Add oscillate mode — sweep back and forth around a user-set center position (e.g. "bottom of the pig" for grilling one side only). Live-tunable from the dashboard: oscillation range (± degrees around center, e.g. 20° = sweeps from −20° to +20°) and center position (captured via a "set home" button at the current encoder angle). Sweep speed reuses the existing `vel_ref` slider — the controller stays in velocity mode and just flips the sign of `vel_ref` whenever the encoder crosses a range endpoint.
+- Add voice notifications over the speaker (Piper TTS on the Pi) for milestone events, e.g. "1000 rotations reached" or "done in 7 minutes". Triggered off MQTT, so the same events could later also drive a Telegram/Discord bot.
