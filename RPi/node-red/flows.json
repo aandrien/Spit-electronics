@@ -969,7 +969,8 @@
         "y": 280,
         "wires": [
             [
-                "cafe1a2b3c4d0006"
+                "cafe1a2b3c4d0006",
+                "cafe1a2b3c4d0007"
             ]
         ]
     },
@@ -1123,5 +1124,52 @@
                 "beef0c1d2e3f0006"
             ]
         ]
+    },
+    {
+        "id": "cafe1a2b3c4d0007",
+        "type": "function",
+        "z": "f9e17605cf3ed006",
+        "name": "wrap to 0-360",
+        "func": "let a = parseFloat(msg.payload);\nif (isNaN(a)) return null;\nmsg.payload = ((a % 360) + 360) % 360;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 480,
+        "y": 320,
+        "wires": [
+            [
+                "cafe1a2b3c4d0008"
+            ]
+        ]
+    },
+    {
+        "id": "cafe1a2b3c4d0008",
+        "type": "ui_gauge",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "group": "a55b0b6cdaaca03d",
+        "order": 4,
+        "width": 0,
+        "height": 0,
+        "gtype": "compass",
+        "title": "Spit angle",
+        "label": "deg",
+        "format": "{{value | number:1}}",
+        "min": 0,
+        "max": 360,
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "",
+        "seg2": "",
+        "className": "",
+        "x": 700,
+        "y": 320,
+        "wires": []
     }
 ]
