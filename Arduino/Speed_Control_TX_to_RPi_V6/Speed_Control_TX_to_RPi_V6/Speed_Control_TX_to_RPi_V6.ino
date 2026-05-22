@@ -151,6 +151,14 @@ uint8_t control_mode_RPi = 0;
 long pos_ref_counts = 0;
 float pos_P_gain = 0.05;
 float pos_max_vel = 30.0;
+float pos_max_accel = 25.0;  // vel-units / second slew limit on the position-loop output
+
+// Slew-rate state for position mode. vel_mag_smooth is the rate-limited magnitude
+// of the position-loop's velocity output that actually drives the inner velocity
+// PID. Resets to 0 the moment we enter position mode so it starts cleanly.
+float vel_mag_smooth = 0.0;
+unsigned long lastPosLoopTime = 0;
+uint8_t control_mode_prev = 0;
 
 // A direction flip is only applied to the H-bridge when BOTH of the following
 // are true:
@@ -215,6 +223,7 @@ void loop() {
     recSize = myTransfer.rxObj(pos_ref_counts, recSize);
     recSize = myTransfer.rxObj(pos_P_gain, recSize);
     recSize = myTransfer.rxObj(pos_max_vel, recSize);
+    recSize = myTransfer.rxObj(pos_max_accel, recSize);
   }
 
   // Mode-dependent computation of direction_target and vel_ref_pi.
@@ -229,20 +238,40 @@ void loop() {
 
     direction_target = (vel_signed >= 0) ? 0 : 1;
 
-    // Don't drive at the new desired speed until the H-bridge direction pin
-    // actually matches — otherwise we'd push the motor the wrong way until
-    // the safety latch releases. Hold vel_ref_pi at 0 so the spit coasts to
-    // rest, the latch flips, then we resume in the correct direction.
-    if (current_direction == direction_target) {
-      vel_ref_pi = fabs(vel_signed);
-    } else {
-      vel_ref_pi = 0.0;
+    // Slew-rate-limit the magnitude fed to the inner velocity PID. Two purposes:
+    //   1. Smooth acceleration when the user moves pos_ref far away (no step
+    //      jump to pos_max_vel; rises at pos_max_accel until it gets there).
+    //   2. Smooth deceleration into the target and around any near-target
+    //      encoder jitter — vel_mag_smooth can't snap, so brief sign flips
+    //      in vel_signed don't produce rapid motor twitching.
+    // The slew target is 0 whenever the direction pin doesn't match yet, so
+    // we decelerate during the latch wait and accelerate cleanly afterward.
+    unsigned long now_pos_ms = millis();
+    if (control_mode_prev == 0) {
+      vel_mag_smooth = 0.0;
+      lastPosLoopTime = now_pos_ms;
     }
+    float dt_pos = (now_pos_ms - lastPosLoopTime) / 1000.0;
+    lastPosLoopTime = now_pos_ms;
+
+    float slew_target = (current_direction == direction_target) ? fabs(vel_signed) : 0.0;
+    float max_step = pos_max_accel * dt_pos;
+    float diff = slew_target - vel_mag_smooth;
+    if (fabs(diff) <= max_step) {
+      vel_mag_smooth = slew_target;
+    } else if (diff > 0) {
+      vel_mag_smooth += max_step;
+    } else {
+      vel_mag_smooth -= max_step;
+    }
+    vel_ref_pi = vel_mag_smooth;
   } else {
     // Velocity mode: pass through the Pi's vel_ref and direction unchanged.
     direction_target = direction_RPi;
     vel_ref_pi = vel_ref_receive;
+    vel_mag_smooth = 0.0;  // reset so next entry to position mode starts clean
   }
+  control_mode_prev = control_mode_RPi;
 
   // Apply latched direction only when the spit is actually coasted to rest
   // AND we are not delivering PWM. Both checks together guarantee no hard

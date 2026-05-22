@@ -29,6 +29,7 @@ receive_control_mode_topic = "mqtt/rpi/rx/control_mode"
 receive_pos_ref_deg_topic = "mqtt/rpi/rx/pos_ref_deg"
 receive_pos_P_gain_topic = "mqtt/rpi/rx/pos_P_gain"
 receive_pos_max_vel_topic = "mqtt/rpi/rx/pos_max_vel"
+receive_pos_max_accel_topic = "mqtt/rpi/rx/pos_max_accel"
 receive_topic = "mqtt/rpi/rx/#"
 
 # Retained "current value" topics — the dashboard subscribes to these so the
@@ -43,6 +44,7 @@ CURRENT_TOPICS = {
     "pos_ref_deg":    "mqtt/rpi/pos_ref_deg_current",
     "pos_P_gain":     "mqtt/rpi/pos_P_gain_current",
     "pos_max_vel":    "mqtt/rpi/pos_max_vel_current",
+    "pos_max_accel":  "mqtt/rpi/pos_max_accel_current",
 }
 
 send_client = paho.Client()
@@ -70,6 +72,7 @@ control_mode = 0
 pos_ref_deg = 0.0
 pos_P_gain = 0.05
 pos_max_vel = 30.0
+pos_max_accel = 25.0  # vel-units/sec slew on the position-loop output; matches Pi-side RAMP_RATE in velocity mode
 
 
 if send_client.connect("localhost", broker_port, 60) != 0:
@@ -147,6 +150,7 @@ def sendData():
     sendSize = link.tx_obj(pos_ref_counts, start_pos=sendSize, val_type_override='l')
     sendSize = link.tx_obj(pos_P_gain,     start_pos=sendSize)
     sendSize = link.tx_obj(pos_max_vel,    start_pos=sendSize)
+    sendSize = link.tx_obj(pos_max_accel,  start_pos=sendSize)
 
     link.send(sendSize)
 
@@ -174,11 +178,17 @@ def make_float_handler(var_name, lo=None, hi=None):
 # (variable name, min, max) for everything persisted to disk. All entries are
 # validated the same way on load: must parse as float, must be finite, clamped
 # into [lo, hi]. Anything failing those checks logs and falls back to the
-# in-code default — the script always reaches the main loop.
+# in-code default — the script always reaches the main loop. Operational state
+# (control_mode, pos_ref_deg, vel_ref, start_stop, direction) is intentionally
+# NOT persisted — those are "where the spit is right now" not "how it's tuned".
 PERSISTED_VARS = [
     ("counts_per_rev", 1.0,    1.0e6),
+    ("P_gain",         0.0,    5.0),
+    ("I_action",       0.0,    15.0),
+    ("feed_forward",  -1.0e6,  1.0e6),
     ("pos_P_gain",     0.0,    10.0),
     ("pos_max_vel",    0.0,    1000.0),
+    ("pos_max_accel",  0.1,    1000.0),
 ]
 
 def load_settings():
@@ -307,6 +317,7 @@ message_handling_counts_per_rev = make_float_handler("counts_per_rev", 1.0, 1.0e
 message_handling_pos_ref_deg   = make_float_handler("pos_ref_deg", -36000.0, 36000.0)  # 100 turns either way is plenty
 message_handling_pos_P_gain    = make_float_handler("pos_P_gain", 0.0, 10.0)
 message_handling_pos_max_vel   = make_float_handler("pos_max_vel", 0.0, 1000.0)
+message_handling_pos_max_accel = make_float_handler("pos_max_accel", 0.1, 1000.0)
 
 def message_handling_control_mode(client, userdata, msg):
     """Switch between velocity (0) and position (1) mode. Snaps the new
@@ -380,6 +391,7 @@ receive_client.message_callback_add(receive_control_mode_topic, message_handling
 receive_client.message_callback_add(receive_pos_ref_deg_topic, message_handling_pos_ref_deg)
 receive_client.message_callback_add(receive_pos_P_gain_topic, message_handling_pos_P_gain)
 receive_client.message_callback_add(receive_pos_max_vel_topic, message_handling_pos_max_vel)
+receive_client.message_callback_add(receive_pos_max_accel_topic, message_handling_pos_max_accel)
 
 receive_client.subscribe(receive_topic)
 

@@ -29,6 +29,7 @@ The Pi re-sends the *whole* packet on every incoming MQTT message (`sendData()` 
 | 19     | `pos_ref`      | int32  | Pi (`zero_count + pos_ref_deg/360 × counts_per_rev`) | `pos_ref_counts` |
 | 23     | `pos_P_gain`   | float  | Node-Red (clamped 0–10)  | `pos_P_gain`         |
 | 27     | `pos_max_vel`  | float  | Node-Red (clamped 0–1000) | `pos_max_vel`       |
+| 31     | `pos_max_accel`| float  | Node-Red (clamped 0.1–1000) | `pos_max_accel`    |
 
 `start_stop` and `direction` are sent with `val_type_override='B'` (unsigned byte) — without that override, pySerialTransfer packs a Python `int` as 4 bytes by default, which would shift every following field by 3 bytes.
 
@@ -70,7 +71,7 @@ The Pi tracks signed angle relative to a user-defined home position. Two new das
 4. Read the Angle display. If it reads, say, `380°` after one turn, multiply `counts_per_rev` by `380/360 = 1.056` and try again. Repeat until one physical turn reads `360°` ± a degree.
 5. Note the calibrated number somewhere durable (this value isn't persisted across Pi restarts — see below).
 
-**Persistence**: `counts_per_rev` is written to `~/.spit_settings.json` when the user presses the **Save Settings** button on the dashboard, and loaded on Python script startup. `zero_count` is not persisted — it's tied to the live encoder count and would be meaningless after an Arduino reboot anyway. Other gains (`P_gain`, `I_action`, `feed_forward`) are not persisted; their dashboard widgets do show the current Pi value on connect (see below) but a script restart reverts them to the in-code defaults.
+**Persistence**: every tunable setting in the dashboard is written to `~/.spit_settings.json` when the user presses **Save Settings**, and loaded on Python script startup. Currently the persisted set is `counts_per_rev`, the velocity-PID gains (`P_gain`, `I_action`, `feed_forward`), and the position-mode tunables (`pos_P_gain`, `pos_max_vel`, `pos_max_accel`) — see `PERSISTED_VARS` in `Spit_RPi_Arduino.py`. Operational state (`control_mode`, `pos_ref_deg`, `vel_ref`, `start_stop`, `direction`) is intentionally *not* persisted — those are "where the spit is right now", not "how it's tuned". `zero_count` is also not persisted; it's tied to the live encoder count and would be meaningless after an Arduino reboot anyway.
 
 **Caveat**: the angle inherits the encoder's backdrive blind spot — a stationary spit gravity-rotated by a lopsided load won't show up in the angle reading.
 
@@ -90,13 +91,17 @@ The widgets are configured with `passthru: false` so an incoming `_current` mess
 The Arduino runs two control modes selected by `control_mode_RPi`:
 
 - **Velocity mode (`control_mode = 0`)** — default and original behavior. `vel_ref_pi` follows the Pi's `vel_ref_receive` directly; `direction_target` follows the Pi's `direction_RPi`. The existing velocity PID tracks `vel_ref`.
-- **Position mode (`control_mode = 1`)** — cascaded control. Outer P loop on the Arduino computes a *signed* velocity from `pos_error = pos_ref_counts − encoderValue`:
+- **Position mode (`control_mode = 1`)** — cascaded control with a slew-rate-limited inner setpoint. Outer P loop on the Arduino computes a *signed* velocity from `pos_error = pos_ref_counts − encoderValue`:
   ```
-  vel_signed = clamp(pos_error × pos_P_gain, −pos_max_vel, +pos_max_vel)
+  vel_signed   = clamp(pos_error × pos_P_gain, −pos_max_vel, +pos_max_vel)
   direction_target = sign(vel_signed)
-  vel_ref_pi = current_direction == direction_target ? |vel_signed| : 0
+  slew_target  = (current_direction == direction_target) ? |vel_signed| : 0
+  vel_mag_smooth  +=/-=  pos_max_accel × dt   (toward slew_target, never overshooting)
+  vel_ref_pi   = vel_mag_smooth
   ```
-  Magnitude feeds the existing velocity PID, sign drives the existing direction-flip latch. When the controller wants to reverse, `vel_ref_pi` is held at 0 until the latch releases — so we never drive the motor in the wrong direction while waiting for the safety gate.
+  Two practical effects of the slew limit:
+    1. **Soft acceleration** — moving the position target far away no longer step-jumps `vel_ref_pi` to `pos_max_vel`; it ramps up at `pos_max_accel`.
+    2. **Less switching at the setpoint** — near the target, brief sign flips in `vel_signed` from encoder pulse jitter can't immediately reverse `vel_mag_smooth`, so the motor doesn't twitch. The slew target also goes to 0 whenever the direction pin doesn't match yet, so the motor decelerates cleanly into a turnaround instead of racing the direction-flip latch.
 
 **Mode switching (UX)**: flipping the mode switch from the dashboard snaps the new mode's setpoint to current state so the spit doesn't lurch:
 - *Entering position mode*: Pi captures the current spit angle as `pos_ref_deg` (and republishes via the retained `_current` topic so the slider updates). Controller has `pos_error ≈ 0` the moment it takes over → spit holds in place.
