@@ -24,9 +24,13 @@ The Pi re-sends the *whole* packet on every incoming MQTT message (`sendData()` 
 | 8      | `I_action`     | float  | Node-Red (clamped 0–15)  | `I_action`           |
 | 12     | `feed_forward` | float  | Node-Red                 | `feed_forward`       |
 | 16     | `start_stop`   | uint8  | Node-Red bool `"true"`   | `start_stop_RPi`     |
-| 17     | `direction`    | uint8  | Node-Red switch (0/1)    | `direction_RPi` → `directionPin` |
+| 17     | `direction`    | uint8  | Node-Red switch (0/1)    | `direction_RPi` → `directionPin` (latched, see below) |
 
 `start_stop` and `direction` are sent with `val_type_override='B'` (unsigned byte) — without that override, pySerialTransfer packs a Python `int` as 4 bytes by default, which would shift every following field by 3 bytes.
+
+**Direction latching.** A direction flip is only applied to `directionPin` when both: (a) PWM duty `u` is effectively zero (the H-bridge isn't delivering power), and (b) no encoder pulse has fired for `DIRECTION_FLIP_QUIET_MS` (default `200` ms). The encoder check is the load-bearing one — `control_vel` can't be trusted as a "motor stopped" signal: the ISR only updates `vel` on each pulse, so when pulses stop `vel` is frozen at its last value indefinitely; and line `control_vel = 0.0` force-zeros it whenever `vel_ref < 0.1` regardless of physical motion. The pulse-silence check via `lastPulseTime` (stamped in the ISR) is the only honest "motor is at rest" signal we have. 200 ms of silence at 305 pulses/rev bounds motion below ~6°/sec — effectively stationary.
+
+This makes oscillate mode work without a special protocol: leave `motor_start = true`, command `vel_ref` toward zero near an endpoint, then publish the direction flip — once the spit physically coasts down (a few hundred ms after PWM drops to zero), the latched direction applies and the next `vel_ref > 0` accelerates the other way.
 
 ### Arduino → Pi (telemetry)
 Every 50 ms the Arduino sends:

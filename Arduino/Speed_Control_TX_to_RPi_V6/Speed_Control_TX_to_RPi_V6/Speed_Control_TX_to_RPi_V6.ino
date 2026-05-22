@@ -137,6 +137,17 @@ bool started_from_RPi = false;
 
 uint8_t direction_RPi = 0;  // 0 = forward (directionPin LOW), 1 = reverse (directionPin HIGH)
 
+// A direction flip is only applied to the H-bridge when BOTH of the following
+// are true:
+//   - PWM duty is effectively zero (no power is being delivered)
+//   - No encoder pulse for DIRECTION_FLIP_QUIET_MS (the spit has actually coasted
+//     to rest — control_vel can lie because vel is stuck at its last value when
+//     pulses stop arriving)
+// At 305 pulses/rev, 200 ms of silence bounds motion below ~1/(305*0.2) rev/sec
+// ≈ 6 deg/sec, which is effectively stationary.
+const unsigned long DIRECTION_FLIP_QUIET_MS = 200;
+volatile unsigned long lastPulseTime = 0;
+
 float vel_ref_receive = 0.0;
 float P = 2.0;
 float I_action = 3.5;
@@ -186,9 +197,18 @@ void loop() {
     recSize = myTransfer.rxObj(start_stop_RPi, recSize);
     recSize = myTransfer.rxObj(direction_RPi, recSize);
 
-    digitalWrite(directionPin, direction_RPi ? HIGH : LOW);
-
     vel_ref_pi = vel_ref_receive;
+  }
+
+  // Apply latched direction only when the spit is actually coasted to rest
+  // AND we are not delivering PWM. Both checks together guarantee no hard
+  // reversal under load: PWM=0 means the H-bridge isn't driving anything,
+  // and the encoder-silence check confirms the motor is physically still
+  // (control_vel cannot be trusted because vel is frozen at its last value
+  // when pulses stop, and it is force-zeroed when vel_ref < 0.1).
+  unsigned long sinceLastPulse = millis() - lastPulseTime;
+  if (u < 0.5 && sinceLastPulse > DIRECTION_FLIP_QUIET_MS) {
+    digitalWrite(directionPin, direction_RPi ? HIGH : LOW);
   }
 
   bool start_from_RPi = false;
@@ -305,6 +325,9 @@ void loop() {
 void updateEncoder() {
   // Add encoderValue by 1, each time it detects rising signal from light detector
   encoderValue++;
+
+  // Stamp the time of the last pulse for the direction-flip safety gate.
+  lastPulseTime = millis();
 
   // Velocity computation
   unsigned long currT = micros();
