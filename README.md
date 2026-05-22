@@ -66,7 +66,21 @@ The Pi tracks signed angle relative to a user-defined home position. Two new das
 4. Read the Angle display. If it reads, say, `380°` after one turn, multiply `counts_per_rev` by `380/360 = 1.056` and try again. Repeat until one physical turn reads `360°` ± a degree.
 5. Note the calibrated number somewhere durable (this value isn't persisted across Pi restarts — see below).
 
-**Caveats**: `counts_per_rev` and `zero_count` live in Python memory only — restart the script and they reset to defaults (`4270`, `0`). If that bites once oscillate mode is in real use, the fix is either to persist them to disk on change or to use MQTT retained messages. Also, the angle inherits the encoder's backdrive blind spot — a stationary spit gravity-rotated by a lopsided load won't show up in the angle reading.
+**Persistence**: `counts_per_rev` is written to `~/.spit_settings.json` when the user presses the **Save Settings** button on the dashboard, and loaded on Python script startup. `zero_count` is not persisted — it's tied to the live encoder count and would be meaningless after an Arduino reboot anyway. Other gains (`P_gain`, `I_action`, `feed_forward`) are not persisted; their dashboard widgets do show the current Pi value on connect (see below) but a script restart reverts them to the in-code defaults.
+
+**Caveat**: the angle inherits the encoder's backdrive blind spot — a stationary spit gravity-rotated by a lopsided load won't show up in the angle reading.
+
+### Dashboard inputs show real values via retained MQTT
+The four text inputs on the dashboard (`P gain`, `I gain`, `Feed Forward`, `Counts / rev`) used to be blank on page load because they only published edits and never subscribed to anything. Now the Pi publishes each setting's current value to a corresponding `_current` topic with `retain=True`, and each widget has an `mqtt in` wired to that topic:
+
+| Variable        | Current-state topic               |
+|-----------------|-----------------------------------|
+| `P_gain`        | `mqtt/rpi/P_gain_current`         |
+| `I_action`      | `mqtt/rpi/I_action_current`       |
+| `feed_forward`  | `mqtt/rpi/feed_forward_current`   |
+| `counts_per_rev`| `mqtt/rpi/counts_per_rev_current` |
+
+The widgets are configured with `passthru: false` so an incoming `_current` message updates the display without re-triggering the output (no feedback loop). A side effect: when the user types a value that the Pi clamps (e.g., a negative `counts_per_rev` clamped to `1`), the Pi republishes the clamped value on `_current`, and the widget snaps to it — visual confirmation that the input got corrected.
 
 ### Control flow on the Arduino
 1. **Two input sources** — a physical pot on `A0` and the Pi over serial. A latching flag `started_from_RPi` decides which `vel_ref` wins. The Pi only "owns" the motor if the start command came from the Pi; pressing the local start button reverts to the pot.

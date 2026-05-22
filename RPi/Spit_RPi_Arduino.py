@@ -1,8 +1,13 @@
 import sys
+import os
+import json
+import math
 import time
 import paho.mqtt.client as paho
 import numpy as np
 from pySerialTransfer import pySerialTransfer as txfer
+
+SETTINGS_PATH = os.path.expanduser("~/.spit_settings.json")
 
 ## Definitions ##
 hostname = "localhost"
@@ -19,7 +24,18 @@ receive_feed_forward_topic = "mqtt/rpi/rx/feed_forward"
 receive_direction_topic = "mqtt/rpi/rx/direction"
 receive_counts_per_rev_topic = "mqtt/rpi/rx/counts_per_rev"
 receive_set_home_topic = "mqtt/rpi/rx/set_home"
+receive_save_settings_topic = "mqtt/rpi/rx/save_settings"
 receive_topic = "mqtt/rpi/rx/#"
+
+# Retained "current value" topics — the dashboard subscribes to these so the
+# text inputs show the real value on load and snap to the clamped value
+# when the user types something out of range. Keyed by the Python variable name.
+CURRENT_TOPICS = {
+    "counts_per_rev": "mqtt/rpi/counts_per_rev_current",
+    "P_gain":         "mqtt/rpi/P_gain_current",
+    "I_action":       "mqtt/rpi/I_action_current",
+    "feed_forward":   "mqtt/rpi/feed_forward_current",
+}
 
 send_client = paho.Client()
 receive_client = paho.Client()
@@ -105,6 +121,14 @@ def sendData():
 
     link.send(sendSize)
 
+def publish_current(var_name):
+    """Republish the variable's current value on its _current topic with retain=True.
+    Called after every value change so dashboard widgets stay in sync and
+    snap back to the clamped value if the user typed something out of range."""
+    topic = CURRENT_TOPICS.get(var_name)
+    if topic is not None:
+        send_client.publish(topic, str(globals()[var_name]), retain=True)
+
 def make_float_handler(var_name, lo=None, hi=None):
     def handler(client, userdata, msg):
         payload = msg.payload.decode().strip()
@@ -115,7 +139,64 @@ def make_float_handler(var_name, lo=None, hi=None):
             value = min(max(value, lo), hi)
         globals()[var_name] = value
         sendData()
+        publish_current(var_name)
     return handler
+
+def load_settings():
+    """Load persisted settings from disk. Any failure (missing file, malformed
+    JSON, wrong type, out-of-range value) falls back to in-code defaults and
+    logs a message — the script always reaches the main loop."""
+    global counts_per_rev
+    try:
+        with open(SETTINGS_PATH, "r") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return
+    except Exception as e:
+        print(f"Failed to read {SETTINGS_PATH}: {e} — using defaults")
+        return
+
+    if not isinstance(data, dict):
+        print(f"{SETTINGS_PATH} doesn't contain a JSON object — using defaults")
+        return
+
+    if "counts_per_rev" in data:
+        raw = data["counts_per_rev"]
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            print(f"Invalid counts_per_rev={raw!r} in {SETTINGS_PATH} — using default")
+        else:
+            if not math.isfinite(value):
+                print(f"Non-finite counts_per_rev={value} in {SETTINGS_PATH} — using default")
+            else:
+                if not (1.0 <= value <= 1.0e6):
+                    clamped = min(max(value, 1.0), 1.0e6)
+                    print(f"counts_per_rev={value} from {SETTINGS_PATH} out of range — clamped to {clamped}")
+                    value = clamped
+                counts_per_rev = value
+                print(f"Loaded counts_per_rev={counts_per_rev} from {SETTINGS_PATH}")
+
+def save_settings():
+    """Persist user-tunable settings to disk atomically (write to .tmp then
+    rename) so a crash mid-write can't leave a half-written file behind."""
+    tmp_path = SETTINGS_PATH + ".tmp"
+    try:
+        with open(tmp_path, "w") as f:
+            json.dump({"counts_per_rev": counts_per_rev}, f)
+        os.replace(tmp_path, SETTINGS_PATH)
+        print(f"Saved settings to {SETTINGS_PATH}")
+    except Exception as e:
+        print(f"Failed to save {SETTINGS_PATH}: {e}")
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+
+def message_handling_save_settings(client, userdata, msg):
+    if msg.payload.decode().strip() == "":
+        return
+    save_settings()
 
 def publish_vel_ref_sent():
     send_client.publish(send_vel_ref_topic, str(vel_ref))
@@ -216,8 +297,16 @@ receive_client.message_callback_add(receive_feed_forward_topic, message_handling
 receive_client.message_callback_add(receive_direction_topic, message_handling_direction)
 receive_client.message_callback_add(receive_counts_per_rev_topic, message_handling_counts_per_rev)
 receive_client.message_callback_add(receive_set_home_topic, message_handling_set_home)
+receive_client.message_callback_add(receive_save_settings_topic, message_handling_save_settings)
 
 receive_client.subscribe(receive_topic)
+
+# Load persisted settings (overwrites in-memory defaults if file exists) and
+# publish the current state of every dashboard-bound setting as retained MQTT,
+# so the UI widgets show real values on connect instead of being blank.
+load_settings()
+for _var in CURRENT_TOPICS:
+    publish_current(_var)
 
 if __name__ == '__main__':
     try:
