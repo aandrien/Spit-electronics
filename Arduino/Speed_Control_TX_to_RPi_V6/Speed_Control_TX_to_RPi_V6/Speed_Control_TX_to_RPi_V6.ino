@@ -151,16 +151,21 @@ uint8_t control_mode_RPi = 0;
 long pos_ref_counts = 0;
 float pos_P_gain = 0.05;
 float pos_I_action = 0.0;    // integral gain on the outer position loop
+float pos_D_gain = 0.0;      // derivative gain — applied to measured signed velocity (not error derivative)
 float pos_max_vel = 30.0;
 float pos_max_accel = 25.0;  // vel-units / second slew limit on the position-loop output
 
 // Slew-rate state for position mode. vel_mag_smooth is the rate-limited magnitude
 // of the position-loop's velocity output that actually drives the inner velocity
 // PID. pos_error_integral accumulates pos_error * dt for the I term, with
-// anti-windup applied to bound its contribution to ±pos_max_vel. Both reset
-// to 0 the moment we enter position mode so it starts cleanly.
+// anti-windup applied to bound its contribution to ±pos_max_vel. pos_vel_filt is
+// an EWMA-filtered signed velocity used for the D term (we filter because the
+// raw 1/dt from each encoder pulse is noisy). All three reset to 0 the moment
+// we enter position mode so it starts cleanly.
 float vel_mag_smooth = 0.0;
 float pos_error_integral = 0.0;
+float pos_vel_filt = 0.0;
+const float POS_VEL_FILT_ALPHA = 0.2;  // EWMA: new = alpha * latest + (1-alpha) * old
 unsigned long lastPosLoopTime = 0;
 uint8_t control_mode_prev = 0;
 
@@ -229,18 +234,21 @@ void loop() {
     recSize = myTransfer.rxObj(pos_max_vel, recSize);
     recSize = myTransfer.rxObj(pos_max_accel, recSize);
     recSize = myTransfer.rxObj(pos_I_action, recSize);
+    recSize = myTransfer.rxObj(pos_D_gain, recSize);
   }
 
   // Mode-dependent computation of direction_target and vel_ref_pi.
   // The existing velocity PID and direction-flip latch downstream are
   // identical for both modes — they just consume different inputs.
   if (control_mode_RPi == 1) {
-    // Position mode: outer PI controller with anti-windup, fed through a
-    // slew-rate-limited magnitude to the inner velocity PID.
+    // Position mode: outer PID controller (P + I with anti-windup + D on
+    // measured velocity), fed through a slew-rate-limited magnitude to the
+    // inner velocity PID.
     unsigned long now_pos_ms = millis();
     if (control_mode_prev == 0) {
       vel_mag_smooth = 0.0;
       pos_error_integral = 0.0;
+      pos_vel_filt = 0.0;
       lastPosLoopTime = now_pos_ms;
     }
     float dt_pos = (now_pos_ms - lastPosLoopTime) / 1000.0;
@@ -260,8 +268,24 @@ void loop() {
       pos_error_integral = 0.0;
     }
 
+    // D term uses the *measured* signed velocity (velocity-feedback form of D)
+    // rather than d(error)/dt. Two reasons:
+    //   1. d(error)/dt amplifies single-pulse encoder timing jitter.
+    //   2. We already have a good velocity estimate from the ISR's vel.
+    // We can't use control_vel directly: it gets force-zeroed when vel_ref<0.1
+    // (exactly the regime where the loop tends to oscillate around the setpoint).
+    // So we build our own: raw ISR vel/3 (matching control_vel scaling), zeroed
+    // honestly when no pulses have fired recently, signed by current_direction,
+    // EWMA-smoothed to take the edge off pulse jitter.
+    unsigned long since_pulse_d = now_pos_ms - lastPulseTime;
+    float vel_mag_for_d = (since_pulse_d > DIRECTION_FLIP_QUIET_MS) ? 0.0 : (vel / 3.0);
+    float vel_signed_meas = vel_mag_for_d * (current_direction == 0 ? 1.0 : -1.0);
+    pos_vel_filt = POS_VEL_FILT_ALPHA * vel_signed_meas
+                   + (1.0 - POS_VEL_FILT_ALPHA) * pos_vel_filt;
+
     float vel_signed = (float)pos_error * pos_P_gain
-                       + pos_error_integral * pos_I_action;
+                       + pos_error_integral * pos_I_action
+                       - pos_D_gain * pos_vel_filt;
     if (vel_signed >  pos_max_vel) vel_signed =  pos_max_vel;
     if (vel_signed < -pos_max_vel) vel_signed = -pos_max_vel;
 
@@ -289,6 +313,7 @@ void loop() {
     vel_ref_pi = vel_ref_receive;
     vel_mag_smooth = 0.0;      // reset for clean next entry to position mode
     pos_error_integral = 0.0;
+    pos_vel_filt = 0.0;
   }
   control_mode_prev = control_mode_RPi;
 

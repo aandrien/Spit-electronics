@@ -1307,7 +1307,7 @@
         "wires": [
             [
                 "dead0c1d2e3f0004",
-                "dead0c1d2e3f0010"
+                "dead0c1d2e3f0015"
             ]
         ]
     },
@@ -1572,50 +1572,91 @@
         ]
     },
     {
-        "id": "dead0c1d2e3f0010",
-        "type": "function",
+        "id": "dead0c1d2e3f0016",
+        "type": "mqtt out",
         "z": "f9e17605cf3ed006",
-        "name": "wrap pos_ref to 0-360",
-        "func": "let a = parseFloat(msg.payload);\nif (isNaN(a)) return null;\nmsg.payload = ((a % 360) + 360) % 360;\nreturn msg;",
-        "outputs": 1,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 500,
-        "y": 380,
+        "name": "",
+        "topic": "mqtt/rpi/rx/pos_D_gain",
+        "qos": "2",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "777307716499796d",
+        "x": 1430,
+        "y": 1060,
+        "wires": []
+    },
+    {
+        "id": "dead0c1d2e3f0017",
+        "type": "ui_text_input",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "label": "Pos D gain",
+        "tooltip": "Derivative gain on the outer position loop. Applied to measured signed velocity (velocity-feedback form, not d/dt of error). Dampens oscillation; lets you keep pos_P_gain higher without overshoot.",
+        "group": "380840898e423db0",
+        "order": 19,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "mode": "number",
+        "delay": 300,
+        "topic": "topic",
+        "sendOnBlur": true,
+        "className": "",
+        "topicType": "msg",
+        "x": 1080,
+        "y": 1060,
         "wires": [
             [
-                "dead0c1d2e3f0014"
+                "dead0c1d2e3f0016"
             ]
         ]
     },
     {
-        "id": "dead0c1d2e3f0014",
-        "type": "ui_gauge",
+        "id": "dead0c1d2e3f0018",
+        "type": "mqtt in",
         "z": "f9e17605cf3ed006",
-        "name": "",
+        "name": "pos_D_gain_current",
+        "topic": "mqtt/rpi/pos_D_gain_current",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "777307716499796d",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 840,
+        "y": 1060,
+        "wires": [
+            [
+                "dead0c1d2e3f0017"
+            ]
+        ]
+    },
+    {
+        "id": "dead0c1d2e3f0015",
+        "type": "ui_template",
+        "z": "f9e17605cf3ed006",
         "group": "a55b0b6cdaaca03d",
+        "name": "Pos target knob",
         "order": 5,
-        "width": 0,
-        "height": 0,
-        "gtype": "compass",
-        "title": "Pos target",
-        "label": "deg",
-        "format": "{{value | number:1}}",
-        "min": 0,
-        "max": 360,
-        "colors": [
-            "#00b500",
-            "#e6e600",
-            "#ca3838"
-        ],
-        "seg1": "",
-        "seg2": "",
+        "width": 6,
+        "height": 6,
+        "format": "<style>\n.spit-knob-container { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; user-select: none; }\n.spit-knob-svg { width: 90%; max-width: 240px; height: auto; cursor: grab; touch-action: none; }\n.spit-knob-svg.dragging { cursor: grabbing; }\n.spit-knob-value { font-size: 18px; font-weight: bold; margin-top: 6px; color: #0091ff; }\n.spit-knob-label { font-size: 12px; color: #aaa; }\n</style>\n<div class=\"spit-knob-container\">\n  <div class=\"spit-knob-label\">Pos target (drag)</div>\n  <svg class=\"spit-knob-svg\" ng-class=\"{dragging: dragging}\"\n       viewBox=\"-100 -100 200 200\"\n       ng-mousedown=\"onDown($event)\" ng-mouseup=\"onUp($event)\"\n       ng-mousemove=\"onMove($event)\" ng-mouseleave=\"onUp($event)\"\n       on-touchstart=\"onDown($event)\" on-touchmove=\"onMove($event)\" on-touchend=\"onUp($event)\">\n    <circle cx=\"0\" cy=\"0\" r=\"92\" fill=\"#1a1a1a\" stroke=\"#666\" stroke-width=\"2\" />\n    <g stroke=\"#444\" stroke-width=\"1\">\n      <line x1=\"0\" y1=\"-92\" x2=\"0\" y2=\"-82\" />\n      <line x1=\"0\" y1=\"92\" x2=\"0\" y2=\"82\" />\n      <line x1=\"-92\" y1=\"0\" x2=\"-82\" y2=\"0\" />\n      <line x1=\"92\" y1=\"0\" x2=\"82\" y2=\"0\" />\n    </g>\n    <text x=\"0\" y=\"-72\" text-anchor=\"middle\" fill=\"#888\" font-size=\"10\">0</text>\n    <text x=\"76\" y=\"3\" text-anchor=\"middle\" fill=\"#888\" font-size=\"10\">90</text>\n    <text x=\"0\" y=\"80\" text-anchor=\"middle\" fill=\"#888\" font-size=\"10\">180</text>\n    <text x=\"-76\" y=\"3\" text-anchor=\"middle\" fill=\"#888\" font-size=\"10\">270</text>\n    <g transform=\"rotate({{displayDeg || 0}})\">\n      <line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"-72\" stroke=\"#0091ff\" stroke-width=\"6\" stroke-linecap=\"round\" />\n      <circle cx=\"0\" cy=\"-72\" r=\"8\" fill=\"#0091ff\" />\n    </g>\n    <circle cx=\"0\" cy=\"0\" r=\"5\" fill=\"#888\" />\n  </svg>\n  <div class=\"spit-knob-value\">{{(displayDeg || 0) | number:1}} deg</div>\n</div>\n<script>\n(function(scope){\n  if (scope._knobInit) return;\n  scope._knobInit = true;\n  scope.displayDeg = 0;\n  scope.dragging = false;\n  scope._lastSent = -999;\n  scope._lastSendTime = 0;\n  scope.$watch('msg', function(msg){\n    if (msg && typeof msg.payload !== 'undefined') {\n      var v = parseFloat(msg.payload);\n      if (!isNaN(v)) scope.displayDeg = ((v % 360) + 360) % 360;\n    }\n  });\n  function angleFromEvent(e, target){\n    var rect = target.getBoundingClientRect();\n    var cx = rect.left + rect.width / 2;\n    var cy = rect.top + rect.height / 2;\n    var pt = (e.touches && e.touches[0]) ? e.touches[0] : e;\n    var dx = pt.clientX - cx;\n    var dy = pt.clientY - cy;\n    var a = Math.atan2(dy, dx) * 180 / Math.PI + 90;\n    if (a < 0) a += 360;\n    return a;\n  }\n  function maybeSend(a){\n    var now = Date.now();\n    if (Math.abs(a - scope._lastSent) > 1 || (now - scope._lastSendTime) > 100) {\n      scope.send({payload: a});\n      scope._lastSent = a;\n      scope._lastSendTime = now;\n    }\n  }\n  scope.onDown = function(e){\n    scope.dragging = true;\n    if (e && e.preventDefault) e.preventDefault();\n    var a = angleFromEvent(e, e.currentTarget);\n    scope.displayDeg = a;\n    maybeSend(a);\n  };\n  scope.onMove = function(e){\n    if (!scope.dragging) return;\n    if (e && e.preventDefault) e.preventDefault();\n    var a = angleFromEvent(e, e.currentTarget);\n    scope.displayDeg = a;\n    maybeSend(a);\n  };\n  scope.onUp = function(){ scope.dragging = false; };\n})(scope);\n</script>",
+        "storeOutMessages": false,
+        "fwdInMessages": false,
+        "resendOnRefresh": true,
+        "templateScope": "local",
         "className": "",
         "x": 740,
         "y": 380,
-        "wires": []
+        "wires": [
+            [
+                "dead0c1d2e3f0005"
+            ]
+        ]
     }
 ]
