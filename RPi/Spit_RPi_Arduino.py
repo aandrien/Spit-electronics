@@ -10,12 +10,15 @@ broker_port = 1883
 send_measured_num_rounds = "mqtt/rpi/num_rounds"
 send_measured_vel_topic = "mqtt/rpi/vel_measured"
 send_vel_ref_topic = "mqtt/rpi/vel_ref_sent"
+send_spit_angle_topic = "mqtt/rpi/spit_angle_deg"
 receive_vel_ref_topic = "mqtt/rpi/rx/vel_ref"
 receive_startstop_topic = "mqtt/rpi/rx/start_stop"
 receive_p_gain_topic = "mqtt/rpi/rx/p_gain"
 receive_i_action_topic = "mqtt/rpi/rx/i_action"
 receive_feed_forward_topic = "mqtt/rpi/rx/feed_forward"
 receive_direction_topic = "mqtt/rpi/rx/direction"
+receive_counts_per_rev_topic = "mqtt/rpi/rx/counts_per_rev"
+receive_set_home_topic = "mqtt/rpi/rx/set_home"
 receive_topic = "mqtt/rpi/rx/#"
 
 send_client = paho.Client()
@@ -26,6 +29,13 @@ vel_measured = 0.0
 encoderCount = 0
 prev_encoder_count = None  # None until the first telemetry packet arrives
 total_abs_pulses = 0       # cumulative |delta| — counts revolutions in both directions equally
+
+# Signed-position tracking — derived purely on the Pi from the signed encoderCount.
+# counts_per_rev is live-tunable from Node-Red (default 4270 = 305 * 14 from the
+# pre-existing num_rounds + dashboard divisor). zero_count is captured when the
+# user presses "Set Home"; spit_angle_deg = (encoderCount - zero_count) / counts_per_rev * 360.
+counts_per_rev = 4270.0
+zero_count = 0
 
 
 if send_client.connect("localhost", broker_port, 60) != 0:
@@ -170,9 +180,18 @@ def ramp_step():
     sendData()
     publish_vel_ref_sent()
 
-message_handling_P_gain       = make_float_handler("P_gain", 0.0, 5.0)
-message_handling_I_action     = make_float_handler("I_action", 0.0, 15.0)
-message_handling_feed_forward = make_float_handler("feed_forward")
+message_handling_P_gain        = make_float_handler("P_gain", 0.0, 5.0)
+message_handling_I_action      = make_float_handler("I_action", 0.0, 15.0)
+message_handling_feed_forward  = make_float_handler("feed_forward")
+message_handling_counts_per_rev = make_float_handler("counts_per_rev", 1.0, 1.0e6)
+
+def message_handling_set_home(client, userdata, msg):
+    # Any non-empty payload acts as a "press" — captures the current signed
+    # encoder count as the new zero so spit_angle_deg reads 0 from here on.
+    global zero_count
+    if msg.payload.decode().strip() == "":
+        return
+    zero_count = encoderCount
 
 def message_handling_direction(client, userdata, msg):
     global direction
@@ -195,6 +214,8 @@ receive_client.message_callback_add(receive_p_gain_topic, message_handling_P_gai
 receive_client.message_callback_add(receive_i_action_topic, message_handling_I_action)
 receive_client.message_callback_add(receive_feed_forward_topic, message_handling_feed_forward)
 receive_client.message_callback_add(receive_direction_topic, message_handling_direction)
+receive_client.message_callback_add(receive_counts_per_rev_topic, message_handling_counts_per_rev)
+receive_client.message_callback_add(receive_set_home_topic, message_handling_set_home)
 
 receive_client.subscribe(receive_topic)
 
@@ -259,6 +280,14 @@ if __name__ == '__main__':
                     total_abs_pulses += abs(encoderCount - prev_encoder_count)
                     prev_encoder_count = encoderCount
                 num_rounds = total_abs_pulses / 305
+
+                # Signed angular position relative to the last "Set Home" press.
+                # counts_per_rev is live-tunable so the user can calibrate by
+                # spinning exactly one full turn after a Set Home and adjusting
+                # the constant until the displayed angle reads 360°.
+                if counts_per_rev > 0:
+                    spit_angle_deg = (encoderCount - zero_count) / counts_per_rev * 360.0
+                    send_client.publish(send_spit_angle_topic, str(spit_angle_deg))
 
                 ###################################################################
                 # Display the received data

@@ -50,6 +50,24 @@ Velocity (`control_vel`) is unchanged in semantics — it's always a positive ma
 
 **Limit worth knowing**: the encoder still can't detect *backdrive*. If the motor is stopped or commanded forward but an unbalanced load gravity-rotates the spit backward, those pulses get counted in whatever the latched direction is — they'll lie by a few degrees for a roughly-balanced load, more for a heavy lopsided one.
 
+### Spit angle (calibration)
+The Pi tracks signed angle relative to a user-defined home position. Two new dashboard widgets and a derived telemetry topic:
+
+| Topic                          | Direction | Meaning                                                                 |
+|--------------------------------|-----------|-------------------------------------------------------------------------|
+| `mqtt/rpi/rx/counts_per_rev`   | Pi ← UI   | Number input — encoder pulses per full rotisserie revolution. Live-tunable. |
+| `mqtt/rpi/rx/set_home`         | Pi ← UI   | Button trigger — captures current `encoderCount` as the zero reference. |
+| `mqtt/rpi/spit_angle_deg`      | Pi → UI   | `(encoderCount − zero_count) / counts_per_rev × 360`. Multi-turn (no wrap). |
+
+**Calibration procedure** (one-time, after assembling or after major mechanical changes):
+1. Set `counts_per_rev` to a starting guess (default `4270` = the existing `305 × 14` from `num_rounds + flows.json` divisor).
+2. Press **Set Home** on the dashboard with the spit at any rest position.
+3. Rotate the spit *exactly one full turn* — either by hand or by jogging the motor slowly.
+4. Read the Angle display. If it reads, say, `380°` after one turn, multiply `counts_per_rev` by `380/360 = 1.056` and try again. Repeat until one physical turn reads `360°` ± a degree.
+5. Note the calibrated number somewhere durable (this value isn't persisted across Pi restarts — see below).
+
+**Caveats**: `counts_per_rev` and `zero_count` live in Python memory only — restart the script and they reset to defaults (`4270`, `0`). If that bites once oscillate mode is in real use, the fix is either to persist them to disk on change or to use MQTT retained messages. Also, the angle inherits the encoder's backdrive blind spot — a stationary spit gravity-rotated by a lopsided load won't show up in the angle reading.
+
 ### Control flow on the Arduino
 1. **Two input sources** — a physical pot on `A0` and the Pi over serial. A latching flag `started_from_RPi` decides which `vel_ref` wins. The Pi only "owns" the motor if the start command came from the Pi; pressing the local start button reverts to the pot.
 2. **Start/stop edge detection** — `start_stop_RPi` is treated as level, but only acts on the rising/falling edge (`start_stop_RPi && !start_stop_RPi_prev`). Repeated `"true"` payloads from Node-Red don't re-trigger.

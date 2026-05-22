@@ -861,5 +861,137 @@
                 "d0b5f14c0b33f71c"
             ]
         ]
+    },
+    {
+        "id": "cafe1a2b3c4d0002",
+        "type": "mqtt out",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "topic": "mqtt/rpi/rx/counts_per_rev",
+        "qos": "2",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "777307716499796d",
+        "x": 1430,
+        "y": 580,
+        "wires": []
+    },
+    {
+        "id": "cafe1a2b3c4d0001",
+        "type": "ui_text_input",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "label": "Counts / rev",
+        "tooltip": "Encoder pulses per full rotisserie revolution. Tune by pressing Set Home, spinning the spit one full turn, and adjusting until Angle reads 360 deg.",
+        "group": "380840898e423db0",
+        "order": 10,
+        "width": 0,
+        "height": 0,
+        "passthru": true,
+        "mode": "number",
+        "delay": 300,
+        "topic": "topic",
+        "sendOnBlur": true,
+        "className": "",
+        "topicType": "msg",
+        "x": 1080,
+        "y": 580,
+        "wires": [
+            [
+                "cafe1a2b3c4d0002"
+            ]
+        ]
+    },
+    {
+        "id": "cafe1a2b3c4d0004",
+        "type": "mqtt out",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "topic": "mqtt/rpi/rx/set_home",
+        "qos": "2",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "777307716499796d",
+        "x": 700,
+        "y": 580,
+        "wires": []
+    },
+    {
+        "id": "cafe1a2b3c4d0003",
+        "type": "ui_button",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "group": "380840898e423db0",
+        "order": 11,
+        "width": "5",
+        "height": "1",
+        "passthru": false,
+        "label": "Set Home (zero angle)",
+        "tooltip": "Capture the current spit position as 0 deg.",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "payload": "set",
+        "payloadType": "str",
+        "topic": "topic",
+        "topicType": "msg",
+        "x": 280,
+        "y": 580,
+        "wires": [
+            [
+                "cafe1a2b3c4d0004"
+            ]
+        ]
+    },
+    {
+        "id": "cafe1a2b3c4d0005",
+        "type": "mqtt in",
+        "z": "f9e17605cf3ed006",
+        "name": "spit_angle_deg",
+        "topic": "mqtt/rpi/spit_angle_deg",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "777307716499796d",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 270,
+        "y": 280,
+        "wires": [
+            [
+                "cafe1a2b3c4d0006"
+            ]
+        ]
+    },
+    {
+        "id": "cafe1a2b3c4d0006",
+        "type": "ui_text",
+        "z": "f9e17605cf3ed006",
+        "group": "a55b0b6cdaaca03d",
+        "order": 3,
+        "width": "0",
+        "height": "0",
+        "name": "",
+        "label": "Angle (deg)",
+        "format": "{{msg.payload | number:1}}",
+        "layout": "row-right",
+        "className": "",
+        "style": true,
+        "font": "Arial,Arial,Helvetica,sans-serif",
+        "fontSize": "30",
+        "color": "#0091ff",
+        "x": 920,
+        "y": 280,
+        "wires": []
     }
 ]
