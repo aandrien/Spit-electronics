@@ -203,7 +203,8 @@
             [
                 "6d0c7b0fd99379eb",
                 "fadcb10fca8e2f95",
-                "443b1854e9c7e81f"
+                "443b1854e9c7e81f",
+                "7a6d7ce3a24756ae"
             ]
         ]
     },
@@ -341,7 +342,7 @@
         "expiry": "",
         "broker": "777307716499796d",
         "x": 700,
-        "y": 420,
+        "y": 460,
         "wires": []
     },
     {
@@ -371,7 +372,7 @@
         "animate": true,
         "className": "",
         "x": 280,
-        "y": 420,
+        "y": 460,
         "wires": [
             [
                 "a7b1b3ae2177a9e7"
@@ -520,8 +521,8 @@
         "outputs": 1,
         "useDifferentColor": false,
         "className": "",
-        "x": 750,
-        "y": 40,
+        "x": 870,
+        "y": 20,
         "wires": [
             []
         ]
@@ -763,8 +764,46 @@
         "rap": true,
         "rh": 0,
         "inputs": 0,
-        "x": 690,
-        "y": 100,
+        "x": 290,
+        "y": 400,
+        "wires": [
+            [
+                "45d7fb1ee36666ac"
+            ]
+        ]
+    },
+    {
+        "id": "45d7fb1ee36666ac",
+        "type": "function",
+        "z": "f9e17605cf3ed006",
+        "name": "function 6",
+        "func": "let setpoint = parseFloat(msg.payload);\nflow.set(\"latest_vel_ref_sent\", setpoint);",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 460,
+        "y": 400,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "7a6d7ce3a24756ae",
+        "type": "function",
+        "z": "f9e17605cf3ed006",
+        "name": "function 7",
+        "func": "let setpoint = flow.get(\"latest_vel_ref_sent\");\nif (setpoint !== undefined) {\n    return {\n        payload: setpoint,\n        topic: \"velocity_sent\"\n    };\n}\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 480,
+        "y": 120,
         "wires": [
             [
                 "d0b5f14c0b33f71c"
