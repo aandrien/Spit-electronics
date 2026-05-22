@@ -104,8 +104,9 @@ int direction = 1;
 float max_pwm = 100;
 boolean motor_start = false;
 
-volatile unsigned long encoderValue = 0;
-volatile float vel = 0.0;
+volatile long encoderValue = 0;          // signed: increments on forward pulses, decrements on reverse pulses
+volatile uint8_t current_direction = 0;  // mirror of the pin that's actually driving the H-bridge; ISR reads this to decide +/-
+volatile float vel = 0.0;                // pulse-rate magnitude (always >= 0) — direction is tracked separately
 volatile unsigned long prevT = 0;
 volatile unsigned long prevTmain = 0;
 
@@ -208,6 +209,10 @@ void loop() {
   // when pulses stop, and it is force-zeroed when vel_ref < 0.1).
   unsigned long sinceLastPulse = millis() - lastPulseTime;
   if (u < 0.5 && sinceLastPulse > DIRECTION_FLIP_QUIET_MS) {
+    // Update current_direction BEFORE the pin write so the ISR can't briefly
+    // count a stray pulse in the old direction. (No pulses should fire during
+    // the latch wait anyway, but cheap defense.)
+    current_direction = direction_RPi;
     digitalWrite(directionPin, direction_RPi ? HIGH : LOW);
   }
 
@@ -306,7 +311,7 @@ void loop() {
     // bytes we're stuffing in the transmit buffer
     uint16_t sendSize = 0;
 
-    unsigned long encoderSend = encoderValue;
+    long encoderSend = encoderValue;  // signed: now reflects net direction-aware position
     // encoderSend = encoderValue;
 
     ///////////////////////////////////////// Stuff buffer with struct
@@ -323,13 +328,19 @@ void loop() {
 
 // UPDATE_ENCODER FUNCTION
 void updateEncoder() {
-  // Add encoderValue by 1, each time it detects rising signal from light detector
-  encoderValue++;
+  // Single-channel encoder — can't tell us direction from the hardware itself.
+  // Use the latched current_direction (set by the main loop only when the
+  // motor is at rest, so it always matches physical motion) to count signed.
+  if (current_direction == 0) {
+    encoderValue++;
+  } else {
+    encoderValue--;
+  }
 
   // Stamp the time of the last pulse for the direction-flip safety gate.
   lastPulseTime = millis();
 
-  // Velocity computation
+  // Velocity computation — pulse-rate magnitude, independent of direction.
   unsigned long currT = micros();
   float deltaT = ((float)(currT - prevT)) / 1.0e6;
   if ((1.0 / deltaT) < 5000.0) { // update velocity only if value is reasonable

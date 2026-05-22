@@ -24,6 +24,8 @@ receive_client = paho.Client()
 
 vel_measured = 0.0
 encoderCount = 0
+prev_encoder_count = None  # None until the first telemetry packet arrives
+total_abs_pulses = 0       # cumulative |delta| — counts revolutions in both directions equally
 
 
 if send_client.connect("localhost", broker_port, 60) != 0:
@@ -243,10 +245,20 @@ if __name__ == '__main__':
                     vel_measured = link.rx_obj(obj_type='f', start_pos=recSize)
                     recSize += txfer.STRUCT_FORMAT_LENGTHS['f']
 
-                    encoderCount = link.rx_obj(obj_type='L', start_pos=recSize)
-                    recSize += txfer.STRUCT_FORMAT_LENGTHS['L']
-                
-                num_rounds = encoderCount/305
+                    encoderCount = link.rx_obj(obj_type='l', start_pos=recSize)
+                    recSize += txfer.STRUCT_FORMAT_LENGTHS['l']
+
+                # Accumulate absolute distance travelled so the rounds counter
+                # keeps going up regardless of direction. The Arduino's
+                # encoderCount is now signed (direction-aware), so a forward
+                # then equal reverse sweep would net to zero — undesirable for
+                # a cook-time counter. abs(delta) per packet gives total travel.
+                if prev_encoder_count is None:
+                    prev_encoder_count = encoderCount
+                else:
+                    total_abs_pulses += abs(encoderCount - prev_encoder_count)
+                    prev_encoder_count = encoderCount
+                num_rounds = total_abs_pulses / 305
 
                 ###################################################################
                 # Display the received data

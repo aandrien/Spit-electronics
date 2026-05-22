@@ -35,12 +35,20 @@ This makes oscillate mode work without a special protocol: leave `motor_start = 
 ### Arduino → Pi (telemetry)
 Every 50 ms the Arduino sends:
 
-| Offset | Field         | Type   | Meaning                                  |
-|--------|---------------|--------|------------------------------------------|
-| 0      | `control_vel` | float  | Moving-average measured velocity         |
-| 4      | `encoderSend` | uint32 | Raw encoder pulse count since boot       |
+| Offset | Field         | Type  | Meaning                                                   |
+|--------|---------------|-------|-----------------------------------------------------------|
+| 0      | `control_vel` | float | Moving-average measured velocity (magnitude, always ≥ 0)  |
+| 4      | `encoderSend` | int32 | Signed encoder count — direction-aware (see below)        |
 
-The Pi divides the encoder count by 305 to get `num_rounds` and republishes both on MQTT (`mqtt/rpi/vel_measured`, `mqtt/rpi/num_rounds`) for Node-Red to graph.
+`encoderSend` is signed: the ISR increments on forward pulses and decrements on reverse pulses, based on the latched `current_direction` set by the main loop when it writes `directionPin`. Since the encoder is single-channel, the ISR has to *infer* direction from what was last commanded — which is reliable because the direction-flip latch only allows changes when the motor is at rest (see Direction latching above).
+
+The Pi keeps two derived quantities from this stream:
+- **`num_rounds`** (published on `mqtt/rpi/num_rounds`) = `Σ |delta| / 305`. Total *distance travelled*, accumulating in both directions — so a forward+reverse oscillation still counts up. Right metric for a cook-time counter.
+- Signed angular position can be recovered directly from `encoderCount % 305` once a zero is established (for future position-control work).
+
+Velocity (`control_vel`) is unchanged in semantics — it's always a positive magnitude since the ISR's `vel = 1/dt` doesn't care about direction. The PI loop's `error = vel_ref − control_vel` still works because the slider commands a magnitude and direction is handled separately by the `directionPin`.
+
+**Limit worth knowing**: the encoder still can't detect *backdrive*. If the motor is stopped or commanded forward but an unbalanced load gravity-rotates the spit backward, those pulses get counted in whatever the latched direction is — they'll lie by a few degrees for a roughly-balanced load, more for a heavy lopsided one.
 
 ### Control flow on the Arduino
 1. **Two input sources** — a physical pot on `A0` and the Pi over serial. A latching flag `started_from_RPi` decides which `vel_ref` wins. The Pi only "owns" the motor if the start command came from the Pi; pressing the local start button reverts to the pot.
