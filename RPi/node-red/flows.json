@@ -1171,5 +1171,273 @@
         "x": 700,
         "y": 320,
         "wires": []
+    },
+    {
+        "id": "dead0c1d2e3f0002",
+        "type": "mqtt out",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "topic": "mqtt/rpi/rx/control_mode",
+        "qos": "2",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "777307716499796d",
+        "x": 700,
+        "y": 700,
+        "wires": []
+    },
+    {
+        "id": "dead0c1d2e3f0001",
+        "type": "ui_switch",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "label": "VEL / POS",
+        "tooltip": "Switch between velocity control (off) and position control (on). On flip, the new mode snaps its target to current state so the spit holds still.",
+        "group": "380840898e423db0",
+        "order": 13,
+        "width": "5",
+        "height": "1",
+        "passthru": false,
+        "decouple": "false",
+        "topic": "topic",
+        "topicType": "msg",
+        "style": "",
+        "onvalue": "true",
+        "onvalueType": "bool",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "false",
+        "offvalueType": "bool",
+        "officon": "",
+        "offcolor": "",
+        "animate": true,
+        "className": "",
+        "x": 280,
+        "y": 700,
+        "wires": [
+            [
+                "dead0c1d2e3f0002"
+            ]
+        ]
+    },
+    {
+        "id": "dead0c1d2e3f0003",
+        "type": "mqtt in",
+        "z": "f9e17605cf3ed006",
+        "name": "control_mode_current",
+        "topic": "mqtt/rpi/control_mode_current",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "777307716499796d",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 60,
+        "y": 700,
+        "wires": [
+            [
+                "dead0c1d2e3f0001"
+            ]
+        ]
+    },
+    {
+        "id": "dead0c1d2e3f0005",
+        "type": "mqtt out",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "topic": "mqtt/rpi/rx/pos_ref_deg",
+        "qos": "2",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "777307716499796d",
+        "x": 1430,
+        "y": 760,
+        "wires": []
+    },
+    {
+        "id": "dead0c1d2e3f0004",
+        "type": "ui_text_input",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "label": "Pos target (deg)",
+        "tooltip": "Position setpoint in degrees from Home. Active only in position mode.",
+        "group": "380840898e423db0",
+        "order": 14,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "mode": "number",
+        "delay": 300,
+        "topic": "topic",
+        "sendOnBlur": true,
+        "className": "",
+        "topicType": "msg",
+        "x": 1080,
+        "y": 760,
+        "wires": [
+            [
+                "dead0c1d2e3f0005"
+            ]
+        ]
+    },
+    {
+        "id": "dead0c1d2e3f0006",
+        "type": "mqtt in",
+        "z": "f9e17605cf3ed006",
+        "name": "pos_ref_deg_current",
+        "topic": "mqtt/rpi/pos_ref_deg_current",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "777307716499796d",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 840,
+        "y": 760,
+        "wires": [
+            [
+                "dead0c1d2e3f0004"
+            ]
+        ]
+    },
+    {
+        "id": "dead0c1d2e3f0008",
+        "type": "mqtt out",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "topic": "mqtt/rpi/rx/pos_P_gain",
+        "qos": "2",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "777307716499796d",
+        "x": 1430,
+        "y": 820,
+        "wires": []
+    },
+    {
+        "id": "dead0c1d2e3f0007",
+        "type": "ui_text_input",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "label": "Pos P gain",
+        "tooltip": "Outer-loop P gain for position mode. Position error (counts) * this = inner-loop velocity setpoint.",
+        "group": "380840898e423db0",
+        "order": 15,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "mode": "number",
+        "delay": 300,
+        "topic": "topic",
+        "sendOnBlur": true,
+        "className": "",
+        "topicType": "msg",
+        "x": 1080,
+        "y": 820,
+        "wires": [
+            [
+                "dead0c1d2e3f0008"
+            ]
+        ]
+    },
+    {
+        "id": "dead0c1d2e3f0009",
+        "type": "mqtt in",
+        "z": "f9e17605cf3ed006",
+        "name": "pos_P_gain_current",
+        "topic": "mqtt/rpi/pos_P_gain_current",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "777307716499796d",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 840,
+        "y": 820,
+        "wires": [
+            [
+                "dead0c1d2e3f0007"
+            ]
+        ]
+    },
+    {
+        "id": "dead0c1d2e3f000b",
+        "type": "mqtt out",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "topic": "mqtt/rpi/rx/pos_max_vel",
+        "qos": "2",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "777307716499796d",
+        "x": 1430,
+        "y": 880,
+        "wires": []
+    },
+    {
+        "id": "dead0c1d2e3f000a",
+        "type": "ui_text_input",
+        "z": "f9e17605cf3ed006",
+        "name": "",
+        "label": "Pos max vel",
+        "tooltip": "Saturation cap on the position-loop's velocity output. Prevents the spit from sprinting at full speed when far from target.",
+        "group": "380840898e423db0",
+        "order": 16,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "mode": "number",
+        "delay": 300,
+        "topic": "topic",
+        "sendOnBlur": true,
+        "className": "",
+        "topicType": "msg",
+        "x": 1080,
+        "y": 880,
+        "wires": [
+            [
+                "dead0c1d2e3f000b"
+            ]
+        ]
+    },
+    {
+        "id": "dead0c1d2e3f000c",
+        "type": "mqtt in",
+        "z": "f9e17605cf3ed006",
+        "name": "pos_max_vel_current",
+        "topic": "mqtt/rpi/pos_max_vel_current",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "777307716499796d",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 840,
+        "y": 880,
+        "wires": [
+            [
+                "dead0c1d2e3f000a"
+            ]
+        ]
     }
 ]

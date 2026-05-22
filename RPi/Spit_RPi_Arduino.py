@@ -25,6 +25,10 @@ receive_direction_topic = "mqtt/rpi/rx/direction"
 receive_counts_per_rev_topic = "mqtt/rpi/rx/counts_per_rev"
 receive_set_home_topic = "mqtt/rpi/rx/set_home"
 receive_save_settings_topic = "mqtt/rpi/rx/save_settings"
+receive_control_mode_topic = "mqtt/rpi/rx/control_mode"
+receive_pos_ref_deg_topic = "mqtt/rpi/rx/pos_ref_deg"
+receive_pos_P_gain_topic = "mqtt/rpi/rx/pos_P_gain"
+receive_pos_max_vel_topic = "mqtt/rpi/rx/pos_max_vel"
 receive_topic = "mqtt/rpi/rx/#"
 
 # Retained "current value" topics — the dashboard subscribes to these so the
@@ -35,6 +39,10 @@ CURRENT_TOPICS = {
     "P_gain":         "mqtt/rpi/P_gain_current",
     "I_action":       "mqtt/rpi/I_action_current",
     "feed_forward":   "mqtt/rpi/feed_forward_current",
+    "control_mode":   "mqtt/rpi/control_mode_current",
+    "pos_ref_deg":    "mqtt/rpi/pos_ref_deg_current",
+    "pos_P_gain":     "mqtt/rpi/pos_P_gain_current",
+    "pos_max_vel":    "mqtt/rpi/pos_max_vel_current",
 }
 
 send_client = paho.Client()
@@ -52,6 +60,16 @@ total_abs_pulses = 0       # cumulative |delta| — counts revolutions in both d
 # user presses "Set Home"; spit_angle_deg = (encoderCount - zero_count) / counts_per_rev * 360.
 counts_per_rev = 4270.0
 zero_count = 0
+
+# Cascaded position-control state. control_mode toggles the inner loop's source:
+#   0 = velocity mode (existing behavior, Pi-set vel_ref is tracked)
+#   1 = position mode (Arduino computes its own vel_ref from pos_ref - encoderCount)
+# pos_ref is set by the user in degrees-from-home on the dashboard, converted to
+# absolute encoder counts inside sendData() using zero_count + counts_per_rev.
+control_mode = 0
+pos_ref_deg = 0.0
+pos_P_gain = 0.05
+pos_max_vel = 30.0
 
 
 if send_client.connect("localhost", broker_port, 60) != 0:
@@ -119,6 +137,17 @@ def sendData():
     ###################################################################
     sendSize = link.tx_obj(direction, start_pos=sendSize, val_type_override='B')
 
+    ###################################################################
+    # Position-mode fields. pos_ref_counts is computed here so the latest
+    # zero_count and counts_per_rev are always reflected without needing
+    # to recompute on every config change.
+    ###################################################################
+    pos_ref_counts = int(zero_count + (pos_ref_deg / 360.0) * counts_per_rev)
+    sendSize = link.tx_obj(control_mode,   start_pos=sendSize, val_type_override='B')
+    sendSize = link.tx_obj(pos_ref_counts, start_pos=sendSize, val_type_override='l')
+    sendSize = link.tx_obj(pos_P_gain,     start_pos=sendSize)
+    sendSize = link.tx_obj(pos_max_vel,    start_pos=sendSize)
+
     link.send(sendSize)
 
 def publish_current(var_name):
@@ -142,11 +171,19 @@ def make_float_handler(var_name, lo=None, hi=None):
         publish_current(var_name)
     return handler
 
+# (variable name, min, max) for everything persisted to disk. All entries are
+# validated the same way on load: must parse as float, must be finite, clamped
+# into [lo, hi]. Anything failing those checks logs and falls back to the
+# in-code default — the script always reaches the main loop.
+PERSISTED_VARS = [
+    ("counts_per_rev", 1.0,    1.0e6),
+    ("pos_P_gain",     0.0,    10.0),
+    ("pos_max_vel",    0.0,    1000.0),
+]
+
 def load_settings():
     """Load persisted settings from disk. Any failure (missing file, malformed
-    JSON, wrong type, out-of-range value) falls back to in-code defaults and
-    logs a message — the script always reaches the main loop."""
-    global counts_per_rev
+    JSON, wrong type, out-of-range value) falls back to in-code defaults."""
     try:
         with open(SETTINGS_PATH, "r") as f:
             data = json.load(f)
@@ -160,22 +197,24 @@ def load_settings():
         print(f"{SETTINGS_PATH} doesn't contain a JSON object — using defaults")
         return
 
-    if "counts_per_rev" in data:
-        raw = data["counts_per_rev"]
+    for var_name, lo, hi in PERSISTED_VARS:
+        if var_name not in data:
+            continue
+        raw = data[var_name]
         try:
             value = float(raw)
         except (TypeError, ValueError):
-            print(f"Invalid counts_per_rev={raw!r} in {SETTINGS_PATH} — using default")
-        else:
-            if not math.isfinite(value):
-                print(f"Non-finite counts_per_rev={value} in {SETTINGS_PATH} — using default")
-            else:
-                if not (1.0 <= value <= 1.0e6):
-                    clamped = min(max(value, 1.0), 1.0e6)
-                    print(f"counts_per_rev={value} from {SETTINGS_PATH} out of range — clamped to {clamped}")
-                    value = clamped
-                counts_per_rev = value
-                print(f"Loaded counts_per_rev={counts_per_rev} from {SETTINGS_PATH}")
+            print(f"Invalid {var_name}={raw!r} in {SETTINGS_PATH} — using default")
+            continue
+        if not math.isfinite(value):
+            print(f"Non-finite {var_name}={value} in {SETTINGS_PATH} — using default")
+            continue
+        if not (lo <= value <= hi):
+            clamped = min(max(value, lo), hi)
+            print(f"{var_name}={value} from {SETTINGS_PATH} out of range — clamped to {clamped}")
+            value = clamped
+        globals()[var_name] = value
+        print(f"Loaded {var_name}={value} from {SETTINGS_PATH}")
 
 def save_settings():
     """Persist user-tunable settings to disk atomically (write to .tmp then
@@ -183,7 +222,7 @@ def save_settings():
     tmp_path = SETTINGS_PATH + ".tmp"
     try:
         with open(tmp_path, "w") as f:
-            json.dump({"counts_per_rev": counts_per_rev}, f)
+            json.dump({name: globals()[name] for name, _, _ in PERSISTED_VARS}, f)
         os.replace(tmp_path, SETTINGS_PATH)
         print(f"Saved settings to {SETTINGS_PATH}")
     except Exception as e:
@@ -265,6 +304,45 @@ message_handling_P_gain        = make_float_handler("P_gain", 0.0, 5.0)
 message_handling_I_action      = make_float_handler("I_action", 0.0, 15.0)
 message_handling_feed_forward  = make_float_handler("feed_forward")
 message_handling_counts_per_rev = make_float_handler("counts_per_rev", 1.0, 1.0e6)
+message_handling_pos_ref_deg   = make_float_handler("pos_ref_deg", -36000.0, 36000.0)  # 100 turns either way is plenty
+message_handling_pos_P_gain    = make_float_handler("pos_P_gain", 0.0, 10.0)
+message_handling_pos_max_vel   = make_float_handler("pos_max_vel", 0.0, 1000.0)
+
+def message_handling_control_mode(client, userdata, msg):
+    """Switch between velocity (0) and position (1) mode. Snaps the new
+    mode's target to current state so the spit doesn't lurch on the flip:
+      - entering position mode: pos_ref_deg = current angle (spit holds)
+      - entering velocity mode: vel_ref = 0 (gentle stop)
+    """
+    global control_mode, pos_ref_deg, vel_ref, vel_ref_target, ramping
+    payload = msg.payload.decode().strip().lower()
+    if payload in ("true", "1", "position"):
+        new_mode = 1
+    elif payload in ("false", "0", "velocity"):
+        new_mode = 0
+    else:
+        return
+
+    if new_mode != control_mode:
+        if new_mode == 1:
+            # Snap pos_ref_deg to current spit angle so the controller has
+            # error=0 the instant it takes over.
+            if counts_per_rev > 0:
+                pos_ref_deg = (encoderCount - zero_count) / counts_per_rev * 360.0
+                publish_current("pos_ref_deg")
+        else:
+            # Cancel any in-flight velocity ramp and set the inner loop
+            # to coast to zero. The slider on the dashboard won't visually
+            # follow this (no retained-state on the slider yet) but the
+            # actual motor command is 0 until the user moves it.
+            vel_ref = 0.0
+            vel_ref_target = 0.0
+            ramping = False
+            publish_vel_ref_sent()
+
+    control_mode = new_mode
+    sendData()
+    publish_current("control_mode")
 
 def message_handling_set_home(client, userdata, msg):
     # Any non-empty payload acts as a "press" — captures the current signed
@@ -298,6 +376,10 @@ receive_client.message_callback_add(receive_direction_topic, message_handling_di
 receive_client.message_callback_add(receive_counts_per_rev_topic, message_handling_counts_per_rev)
 receive_client.message_callback_add(receive_set_home_topic, message_handling_set_home)
 receive_client.message_callback_add(receive_save_settings_topic, message_handling_save_settings)
+receive_client.message_callback_add(receive_control_mode_topic, message_handling_control_mode)
+receive_client.message_callback_add(receive_pos_ref_deg_topic, message_handling_pos_ref_deg)
+receive_client.message_callback_add(receive_pos_P_gain_topic, message_handling_pos_P_gain)
+receive_client.message_callback_add(receive_pos_max_vel_topic, message_handling_pos_max_vel)
 
 receive_client.subscribe(receive_topic)
 

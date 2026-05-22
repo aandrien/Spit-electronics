@@ -25,6 +25,10 @@ The Pi re-sends the *whole* packet on every incoming MQTT message (`sendData()` 
 | 12     | `feed_forward` | float  | Node-Red                 | `feed_forward`       |
 | 16     | `start_stop`   | uint8  | Node-Red bool `"true"`   | `start_stop_RPi`     |
 | 17     | `direction`    | uint8  | Node-Red switch (0/1)    | `direction_RPi` → `directionPin` (latched, see below) |
+| 18     | `control_mode` | uint8  | Node-Red VEL/POS switch  | `control_mode_RPi` (0=velocity, 1=position) |
+| 19     | `pos_ref`      | int32  | Pi (`zero_count + pos_ref_deg/360 × counts_per_rev`) | `pos_ref_counts` |
+| 23     | `pos_P_gain`   | float  | Node-Red (clamped 0–10)  | `pos_P_gain`         |
+| 27     | `pos_max_vel`  | float  | Node-Red (clamped 0–1000) | `pos_max_vel`       |
 
 `start_stop` and `direction` are sent with `val_type_override='B'` (unsigned byte) — without that override, pySerialTransfer packs a Python `int` as 4 bytes by default, which would shift every following field by 3 bytes.
 
@@ -81,6 +85,22 @@ The four text inputs on the dashboard (`P gain`, `I gain`, `Feed Forward`, `Coun
 | `counts_per_rev`| `mqtt/rpi/counts_per_rev_current` |
 
 The widgets are configured with `passthru: false` so an incoming `_current` message updates the display without re-triggering the output (no feedback loop). A side effect: when the user types a value that the Pi clamps (e.g., a negative `counts_per_rev` clamped to `1`), the Pi republishes the clamped value on `_current`, and the widget snaps to it — visual confirmation that the input got corrected.
+
+### Control modes
+The Arduino runs two control modes selected by `control_mode_RPi`:
+
+- **Velocity mode (`control_mode = 0`)** — default and original behavior. `vel_ref_pi` follows the Pi's `vel_ref_receive` directly; `direction_target` follows the Pi's `direction_RPi`. The existing velocity PID tracks `vel_ref`.
+- **Position mode (`control_mode = 1`)** — cascaded control. Outer P loop on the Arduino computes a *signed* velocity from `pos_error = pos_ref_counts − encoderValue`:
+  ```
+  vel_signed = clamp(pos_error × pos_P_gain, −pos_max_vel, +pos_max_vel)
+  direction_target = sign(vel_signed)
+  vel_ref_pi = current_direction == direction_target ? |vel_signed| : 0
+  ```
+  Magnitude feeds the existing velocity PID, sign drives the existing direction-flip latch. When the controller wants to reverse, `vel_ref_pi` is held at 0 until the latch releases — so we never drive the motor in the wrong direction while waiting for the safety gate.
+
+**Mode switching (UX)**: flipping the mode switch from the dashboard snaps the new mode's setpoint to current state so the spit doesn't lurch:
+- *Entering position mode*: Pi captures the current spit angle as `pos_ref_deg` (and republishes via the retained `_current` topic so the slider updates). Controller has `pos_error ≈ 0` the moment it takes over → spit holds in place.
+- *Entering velocity mode*: Pi resets `vel_ref` and `vel_ref_target` to 0 and cancels any in-flight ramp. The slider on the dashboard does *not* visually follow (no retained-state on it yet); the motor is held at 0 until the user moves the slider.
 
 ### Control flow on the Arduino
 1. **Two input sources** — a physical pot on `A0` and the Pi over serial. A latching flag `started_from_RPi` decides which `vel_ref` wins. The Pi only "owns" the motor if the start command came from the Pi; pressing the local start button reverts to the pot.

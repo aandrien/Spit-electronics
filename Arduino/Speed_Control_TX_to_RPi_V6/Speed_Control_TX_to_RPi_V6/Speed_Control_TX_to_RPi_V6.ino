@@ -136,7 +136,21 @@ uint8_t start_stop_RPi  = 0;
 uint8_t start_stop_RPi_prev = 0;
 bool started_from_RPi = false;
 
-uint8_t direction_RPi = 0;  // 0 = forward (directionPin LOW), 1 = reverse (directionPin HIGH)
+uint8_t direction_RPi = 0;     // requested direction from Pi (velocity-mode source of truth)
+uint8_t direction_target = 0;  // desired direction the latch is trying to apply
+                               //   velocity mode: tracks direction_RPi
+                               //   position mode: sign of (pos_ref - encoderValue)
+                               // current_direction (already declared) is what's actually driving the H-bridge.
+
+// Cascaded position-control state. control_mode_RPi switches between:
+//   0 = velocity mode (existing behavior: vel_ref_pi follows the Pi's vel_ref_receive)
+//   1 = position mode: outer P controller computes a signed velocity setpoint from
+//       pos_ref_counts - encoderValue; magnitude feeds the existing velocity PID
+//       via vel_ref_pi, sign drives direction_target through the existing latch.
+uint8_t control_mode_RPi = 0;
+long pos_ref_counts = 0;
+float pos_P_gain = 0.05;
+float pos_max_vel = 30.0;
 
 // A direction flip is only applied to the H-bridge when BOTH of the following
 // are true:
@@ -197,7 +211,36 @@ void loop() {
     recSize = myTransfer.rxObj(feed_forward, recSize);
     recSize = myTransfer.rxObj(start_stop_RPi, recSize);
     recSize = myTransfer.rxObj(direction_RPi, recSize);
+    recSize = myTransfer.rxObj(control_mode_RPi, recSize);
+    recSize = myTransfer.rxObj(pos_ref_counts, recSize);
+    recSize = myTransfer.rxObj(pos_P_gain, recSize);
+    recSize = myTransfer.rxObj(pos_max_vel, recSize);
+  }
 
+  // Mode-dependent computation of direction_target and vel_ref_pi.
+  // The existing velocity PID and direction-flip latch downstream are
+  // identical for both modes — they just consume different inputs.
+  if (control_mode_RPi == 1) {
+    // Position mode: outer P controller. Signed velocity target from pos error.
+    long pos_error = pos_ref_counts - encoderValue;
+    float vel_signed = (float)pos_error * pos_P_gain;
+    if (vel_signed >  pos_max_vel) vel_signed =  pos_max_vel;
+    if (vel_signed < -pos_max_vel) vel_signed = -pos_max_vel;
+
+    direction_target = (vel_signed >= 0) ? 0 : 1;
+
+    // Don't drive at the new desired speed until the H-bridge direction pin
+    // actually matches — otherwise we'd push the motor the wrong way until
+    // the safety latch releases. Hold vel_ref_pi at 0 so the spit coasts to
+    // rest, the latch flips, then we resume in the correct direction.
+    if (current_direction == direction_target) {
+      vel_ref_pi = fabs(vel_signed);
+    } else {
+      vel_ref_pi = 0.0;
+    }
+  } else {
+    // Velocity mode: pass through the Pi's vel_ref and direction unchanged.
+    direction_target = direction_RPi;
     vel_ref_pi = vel_ref_receive;
   }
 
@@ -212,8 +255,10 @@ void loop() {
     // Update current_direction BEFORE the pin write so the ISR can't briefly
     // count a stray pulse in the old direction. (No pulses should fire during
     // the latch wait anyway, but cheap defense.)
-    current_direction = direction_RPi;
-    digitalWrite(directionPin, direction_RPi ? HIGH : LOW);
+    // direction_target is the mode-aware desired direction: from Pi in
+    // velocity mode, from sign of position error in position mode.
+    current_direction = direction_target;
+    digitalWrite(directionPin, direction_target ? HIGH : LOW);
   }
 
   bool start_from_RPi = false;
