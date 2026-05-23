@@ -1,0 +1,15 @@
+[Unit]
+Description=SpitTronics log viewer (Flask)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=__REPO_ROOT__/RPi/viewer
+ExecStart=/usr/bin/python3 __REPO_ROOT__/RPi/viewer/app.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

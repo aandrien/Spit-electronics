@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SpitTronics Logs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 1.5rem; color: #222; }
+    h1, h2 { font-weight: 600; }
+    a { color: #1357c4; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    nav { margin-bottom: 1rem; }
+    nav a { margin-right: 1rem; }
+    table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+    th, td { border: 1px solid #ddd; padding: 0.4rem 0.6rem; text-align: left; }
+    th { background: #f4f6f8; }
+    tr:nth-child(even) td { background: #fafbfc; }
+    .chart { width: 100%; height: 320px; margin-bottom: 1rem; }
+    .muted { color: #888; font-size: 0.9rem; }
+  </style>
+  {% block head_extra %}{% endblock %}
+</head>
+<body>
+  <nav>
+    <a href="{{ url_for('index') }}">Sessions</a>
+    <a href="{{ url_for('events') }}">Events</a>
+  </nav>
+  {% block body %}{% endblock %}
+</body>
+</html>

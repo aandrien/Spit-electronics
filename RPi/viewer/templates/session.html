@@ -1,0 +1,49 @@
+{% extends "_base.html" %}
+{% block head_extra %}
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+{% endblock %}
+{% block body %}
+  <h1>{{ name }}</h1>
+  <p class="muted">{{ n_rows_displayed }} points plotted (downsampled if needed). <a href="{{ url_for('download', name=name) }}">Download raw CSV</a></p>
+
+  <div id="chart_vel" class="chart"></div>
+  <div id="chart_u" class="chart"></div>
+  <div id="chart_err" class="chart"></div>
+  <div id="chart_pos" class="chart"></div>
+
+  <script>
+    const t = {{ t|tojson }};
+    const series = {{ series|tojson }};
+    const layout = (title, ytitle) => ({
+      title: title,
+      margin: {l: 60, r: 20, t: 40, b: 40},
+      xaxis: {title: 't (s)'},
+      yaxis: {title: ytitle},
+      legend: {orientation: 'h'},
+    });
+    const cfg = {responsive: true, displaylogo: false};
+
+    Plotly.newPlot('chart_vel', [
+      {x: t, y: series.vel_ref,      mode: 'lines', name: 'vel_ref'},
+      {x: t, y: series.vel_measured, mode: 'lines', name: 'vel_measured'},
+    ], layout('Velocity: command vs measured', 'vel'), cfg);
+
+    Plotly.newPlot('chart_u', [
+      {x: t, y: series.u_duty,         mode: 'lines', name: 'u_duty (%)'},
+      {x: t, y: series.error_integral, mode: 'lines', name: 'error_integral', yaxis: 'y2'},
+    ], {
+      ...layout('Motor effort & PID integral', 'u_duty (%)'),
+      yaxis2: {title: 'error_integral', overlaying: 'y', side: 'right'},
+    }, cfg);
+
+    Plotly.newPlot('chart_err', [
+      {x: t, y: series.vel_error, mode: 'lines', name: 'vel_error'},
+    ], layout('Velocity tracking error', 'vel_ref − vel_measured'), cfg);
+
+    Plotly.newPlot('chart_pos', [
+      {x: t, y: series.spit_angle_deg, mode: 'lines', name: 'spit_angle_deg'},
+      {x: t, y: series.pos_ref_deg,    mode: 'lines', name: 'pos_ref_deg'},
+      {x: t, y: series.pos_error_deg,  mode: 'lines', name: 'pos_error_deg'},
+    ], layout('Position', 'degrees'), cfg);
+  </script>
+{% endblock %}

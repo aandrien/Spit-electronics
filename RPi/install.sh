@@ -62,7 +62,7 @@ PIP_FLAGS=""
 if compgen -G "/usr/lib/python3*/EXTERNALLY-MANAGED" >/dev/null; then
   PIP_FLAGS="--break-system-packages"
 fi
-pip3 install $PIP_FLAGS paho-mqtt pySerialTransfer numpy
+pip3 install $PIP_FLAGS paho-mqtt pySerialTransfer numpy flask
 
 echo "==> Checking for Node-Red"
 if ! command -v node-red >/dev/null; then
@@ -115,7 +115,22 @@ else
   (crontab -l 2>/dev/null; echo "@reboot sleep 10 $START_SCRIPT >> /home/pi/crontab_log.txt 2>&1") | crontab -
 fi
 
+echo "==> Installing spit-viewer systemd service"
+# Substitute the absolute repo path into the templated unit file. Re-installing
+# is cheap (sed + write + reload), so we always overwrite — keeps the unit in
+# sync if REPO_ROOT moves between runs.
+VIEWER_UNIT_SRC="$REPO_ROOT/RPi/viewer/spit-viewer.service"
+VIEWER_UNIT_DST="/etc/systemd/system/spit-viewer.service"
+if [ ! -f "$VIEWER_UNIT_SRC" ]; then
+  echo "!! Missing $VIEWER_UNIT_SRC — skipping viewer service install."
+else
+  sudo sed "s|__REPO_ROOT__|$REPO_ROOT|g" "$VIEWER_UNIT_SRC" | sudo tee "$VIEWER_UNIT_DST" >/dev/null
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now spit-viewer.service
+  echo "   viewer running at http://$(hostname -I | awk '{print $1}'):5000"
+fi
+
 echo
 echo "==> Done. Reboot the Pi to verify auto-start, then check:"
-echo "     sudo systemctl status nodered mosquitto"
+echo "     sudo systemctl status nodered mosquitto spit-viewer"
 echo "     tail -f /home/pi/crontab_log.txt"

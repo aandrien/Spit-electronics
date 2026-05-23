@@ -4,3 +4,7 @@ RPi/node-red/.flows_cred.json.backup
 
 # Local Claude Code per-user settings
 .claude/
+
+# Python bytecode caches
+__pycache__/
+*.pyc

@@ -1,0 +1,42 @@
+{% extends "_base.html" %}
+{% block body %}
+  <h1>Sessions</h1>
+  {% if not sessions %}
+    <p class="muted">No sessions logged yet. Start the spit from the dashboard to record one.</p>
+  {% else %}
+    <table>
+      <thead>
+        <tr>
+          <th>Start</th>
+          <th>Duration (s)</th>
+          <th>Rounds</th>
+          <th>Dir flips</th>
+          <th>Avg u</th>
+          <th>Max u</th>
+          <th>Avg |vel err|</th>
+          <th>Max |vel err|</th>
+          <th>CRC err</th>
+          <th>Dropped</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in sessions %}
+          <tr>
+            <td><a href="{{ url_for('session', name=s.filename) }}">{{ s.start_iso }}</a></td>
+            <td>{{ s.duration_s }}</td>
+            <td>{{ s.total_abs_rounds }}</td>
+            <td>{{ s.direction_flips }}</td>
+            <td>{{ s.avg_u }}</td>
+            <td>{{ s.max_u }}</td>
+            <td>{{ s.avg_abs_vel_error }}</td>
+            <td>{{ s.max_abs_vel_error }}</td>
+            <td>{{ s.crc_errors }}</td>
+            <td>{{ s.dropped_rows }}</td>
+            <td><a href="{{ url_for('download', name=s.filename) }}">CSV</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+{% endblock %}

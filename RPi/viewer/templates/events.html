@@ -1,0 +1,27 @@
+{% extends "_base.html" %}
+{% block body %}
+  <h1>Events</h1>
+  {% if not events %}
+    <p class="muted">No events logged yet.</p>
+  {% else %}
+    <p class="muted">Showing newest 500 events.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Event</th>
+          <th>Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in events %}
+          <tr>
+            <td>{{ e.timestamp_iso }}</td>
+            <td>{{ e.event_type }}</td>
+            <td>{{ e.details }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+{% endblock %}
