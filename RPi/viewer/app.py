@@ -13,9 +13,10 @@ Plotly loaded from a CDN.
 
 import csv
 import os
+import time
 from collections import OrderedDict
 
-from flask import Flask, render_template, abort, send_from_directory
+from flask import Flask, render_template, abort, send_from_directory, jsonify
 
 LOG_DIR = os.path.expanduser("~/.spit_logs")
 TS_DIR = os.path.join(LOG_DIR, "ts")
@@ -60,41 +61,103 @@ def _column(rows, name, cast=float):
     return out
 
 
+def _filename_to_iso(filename):
+    # session_2026-05-23_18-32-15.csv -> "2026-05-23 18:32:15"
+    stamp = filename[len("session_"):-len(".csv")] if filename.startswith("session_") else filename
+    if "_" in stamp:
+        date_part, time_part = stamp.split("_", 1)
+        return f"{date_part} {time_part.replace('-', ':')}"
+    return stamp
+
+
 @app.route("/")
 def index():
-    sessions = _read_csv(SESSIONS_CSV)
-    sessions.sort(key=lambda r: r.get("start_iso", ""), reverse=True)
+    # Build the session list from the ts/ directory directly (not just from
+    # sessions.csv), so the running session and any previously-crashed sessions
+    # without a summary row still show up. Files whose summary row is missing
+    # get a "running" badge if mtime is fresh, otherwise "incomplete".
+    by_filename = {r.get("filename"): r for r in _read_csv(SESSIONS_CSV)}
+
+    if os.path.isdir(TS_DIR):
+        files = sorted(
+            [f for f in os.listdir(TS_DIR) if f.endswith(".csv")],
+            reverse=True,
+        )
+    else:
+        files = []
+
+    now = time.time()
+    sessions = []
+    for f in files:
+        summary = by_filename.get(f)
+        if summary:
+            row = dict(summary)
+            row["status"] = "done"
+        else:
+            try:
+                mtime = os.path.getmtime(os.path.join(TS_DIR, f))
+            except OSError:
+                mtime = 0
+            # 10 s of staleness covers the 1 s flush + a bit of slack. Anything
+            # older than that without a summary row is a session that died
+            # without a clean shutdown (power-cut etc).
+            status = "running" if (now - mtime) < 10 else "incomplete"
+            row = {
+                "filename": f,
+                "start_iso": _filename_to_iso(f),
+                "status": status,
+                "duration_s": "",
+                "total_abs_rounds": "",
+                "direction_flips": "",
+                "avg_u": "",
+                "max_u": "",
+                "avg_abs_vel_error": "",
+                "max_abs_vel_error": "",
+                "crc_errors": "",
+                "dropped_rows": "",
+            }
+        sessions.append(row)
     return render_template("sessions.html", sessions=sessions)
+
+
+def _session_data(name):
+    """Shared by the HTML page and the JSON polling endpoint."""
+    if "/" in name or "\\" in name or ".." in name or not name.endswith(".csv"):
+        return None
+    path = os.path.join(TS_DIR, name)
+    if not os.path.isfile(path):
+        return None
+    rows = _read_ts(path)
+    return {
+        "t": _column(rows, "t_s"),
+        "series": {
+            "vel_ref":        _column(rows, "vel_ref"),
+            "vel_measured":   _column(rows, "vel_measured"),
+            "vel_error":      _column(rows, "vel_error"),
+            "u_duty":         _column(rows, "u_duty"),
+            "error_integral": _column(rows, "error_integral"),
+            "spit_angle_deg": _column(rows, "spit_angle_deg"),
+            "pos_ref_deg":    _column(rows, "pos_ref_deg"),
+            "pos_error_deg":  _column(rows, "pos_error_deg"),
+        },
+        "n_rows_displayed": len(rows),
+    }
 
 
 @app.route("/session/<name>")
 def session(name):
-    # Path-traversal guard: only accept simple session_*.csv names.
-    if "/" in name or "\\" in name or ".." in name or not name.endswith(".csv"):
+    data = _session_data(name)
+    if data is None:
         abort(404)
-    path = os.path.join(TS_DIR, name)
-    if not os.path.isfile(path):
-        abort(404)
-    rows = _read_ts(path)
+    return render_template("session.html", name=name, **data)
 
-    t = _column(rows, "t_s")
-    series = OrderedDict([
-        ("vel_ref",        _column(rows, "vel_ref")),
-        ("vel_measured",   _column(rows, "vel_measured")),
-        ("vel_error",      _column(rows, "vel_error")),
-        ("u_duty",         _column(rows, "u_duty")),
-        ("error_integral", _column(rows, "error_integral")),
-        ("spit_angle_deg", _column(rows, "spit_angle_deg")),
-        ("pos_ref_deg",    _column(rows, "pos_ref_deg")),
-        ("pos_error_deg",  _column(rows, "pos_error_deg")),
-    ])
-    return render_template(
-        "session.html",
-        name=name,
-        t=t,
-        series=series,
-        n_rows_displayed=len(rows),
-    )
+
+@app.route("/session/<name>/data")
+def session_data(name):
+    data = _session_data(name)
+    if data is None:
+        abort(404)
+    return jsonify(data)
 
 
 @app.route("/download/<name>")

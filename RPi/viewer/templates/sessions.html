@@ -8,6 +8,7 @@
       <thead>
         <tr>
           <th>Start</th>
+          <th>Status</th>
           <th>Duration (s)</th>
           <th>Rounds</th>
           <th>Dir flips</th>
@@ -24,6 +25,11 @@
         {% for s in sessions %}
           <tr>
             <td><a href="{{ url_for('session', name=s.filename) }}">{{ s.start_iso }}</a></td>
+            <td>
+              {% if s.status == "running" %}<span style="color:#1a7a1a;font-weight:600;">running</span>
+              {% elif s.status == "incomplete" %}<span style="color:#a04000;" title="No summary row — likely a power-loss before clean shutdown.">incomplete</span>
+              {% else %}done{% endif %}
+            </td>
             <td>{{ s.duration_s }}</td>
             <td>{{ s.total_abs_rounds }}</td>
             <td>{{ s.direction_flips }}</td>

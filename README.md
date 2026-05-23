@@ -171,8 +171,8 @@ One session = one run of `Spit_RPi_Arduino.py`. The session opens once at script
 
 `RPi/viewer/app.py` runs as `spit-viewer.service` (systemd, enabled by `install.sh`) on port 5000. Reach it at `http://<pi-ip>:5000`:
 
-- `/` — sessions table, newest first, with summary stats and a CSV download link per session
-- `/session/<file>` — Plotly charts: `vel_ref` vs `vel_measured`, `u_duty` + `error_integral`, `vel_error`, position (`spit_angle_deg`, `pos_ref_deg`, `pos_error_deg`). Long sessions are downsampled to ~4k points before rendering so the browser stays snappy; the raw CSV is always available via the download link.
+- `/` — sessions table, newest first, with summary stats and a CSV download link per session. Built by scanning `ts/` directly so the **currently-running session** shows up with a green `running` badge mid-cook; previously-crashed sessions (file present but no summary row) show `incomplete`.
+- `/session/<file>` — Plotly charts: `vel_ref` vs `vel_measured`, `u_duty` + `error_integral`, `vel_error`, position (`spit_angle_deg`, `pos_ref_deg`, `pos_error_deg`). Long sessions are downsampled to ~4k points before rendering so the browser stays snappy; the raw CSV is always available via the download link. **Charts auto-refresh every 3 s** by fetching `/session/<file>/data` and calling `Plotly.react()` — zoom/pan position is preserved across redraws via `uirevision`. Toggle off with the `live` checkbox at the top.
 - `/events` — newest 500 events.
 
 Plotly is loaded from a CDN — no JS build, no extra Python deps beyond Flask.

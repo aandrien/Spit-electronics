@@ -4,7 +4,12 @@
 {% endblock %}
 {% block body %}
   <h1>{{ name }}</h1>
-  <p class="muted">{{ n_rows_displayed }} points plotted (downsampled if needed). <a href="{{ url_for('download', name=name) }}">Download raw CSV</a></p>
+  <p class="muted">
+    <span id="point_count">{{ n_rows_displayed }}</span> points plotted (downsampled if needed).
+    Auto-refresh every 3 s.
+    <label style="margin-left:1rem;"><input type="checkbox" id="auto_refresh" checked> live</label>
+    <a href="{{ url_for('download', name=name) }}" style="margin-left:1rem;">Download raw CSV</a>
+  </p>
 
   <div id="chart_vel" class="chart"></div>
   <div id="chart_u" class="chart"></div>
@@ -12,38 +17,65 @@
   <div id="chart_pos" class="chart"></div>
 
   <script>
-    const t = {{ t|tojson }};
-    const series = {{ series|tojson }};
-    const layout = (title, ytitle) => ({
+    const NAME = {{ name|tojson }};
+    const REFRESH_MS = 3000;
+
+    const layout = (title, ytitle, extra) => Object.assign({
       title: title,
-      margin: {l: 60, r: 20, t: 40, b: 40},
+      margin: {l: 60, r: 60, t: 40, b: 40},
       xaxis: {title: 't (s)'},
       yaxis: {title: ytitle},
       legend: {orientation: 'h'},
-    });
+      uirevision: 'keep',  // preserve user zoom/pan across redraws
+    }, extra || {});
     const cfg = {responsive: true, displaylogo: false};
 
-    Plotly.newPlot('chart_vel', [
-      {x: t, y: series.vel_ref,      mode: 'lines', name: 'vel_ref'},
-      {x: t, y: series.vel_measured, mode: 'lines', name: 'vel_measured'},
-    ], layout('Velocity: command vs measured', 'vel'), cfg);
+    function traces(d) {
+      return {
+        vel: [
+          {x: d.t, y: d.series.vel_ref,      mode: 'lines', name: 'vel_ref'},
+          {x: d.t, y: d.series.vel_measured, mode: 'lines', name: 'vel_measured'},
+        ],
+        u: [
+          {x: d.t, y: d.series.u_duty,         mode: 'lines', name: 'u_duty (%)'},
+          {x: d.t, y: d.series.error_integral, mode: 'lines', name: 'error_integral', yaxis: 'y2'},
+        ],
+        err: [
+          {x: d.t, y: d.series.vel_error, mode: 'lines', name: 'vel_error'},
+        ],
+        pos: [
+          {x: d.t, y: d.series.spit_angle_deg, mode: 'lines', name: 'spit_angle_deg'},
+          {x: d.t, y: d.series.pos_ref_deg,    mode: 'lines', name: 'pos_ref_deg'},
+          {x: d.t, y: d.series.pos_error_deg,  mode: 'lines', name: 'pos_error_deg'},
+        ],
+      };
+    }
 
-    Plotly.newPlot('chart_u', [
-      {x: t, y: series.u_duty,         mode: 'lines', name: 'u_duty (%)'},
-      {x: t, y: series.error_integral, mode: 'lines', name: 'error_integral', yaxis: 'y2'},
-    ], {
-      ...layout('Motor effort & PID integral', 'u_duty (%)'),
-      yaxis2: {title: 'error_integral', overlaying: 'y', side: 'right'},
-    }, cfg);
+    function draw(d, method) {
+      const tr = traces(d);
+      method('chart_vel', tr.vel, layout('Velocity: command vs measured', 'vel'), cfg);
+      method('chart_u',   tr.u,   layout('Motor effort & PID integral', 'u_duty (%)', {
+        yaxis2: {title: 'error_integral', overlaying: 'y', side: 'right'},
+      }), cfg);
+      method('chart_err', tr.err, layout('Velocity tracking error', 'vel_ref − vel_measured'), cfg);
+      method('chart_pos', tr.pos, layout('Position', 'degrees'), cfg);
+      document.getElementById('point_count').textContent = d.n_rows_displayed;
+    }
 
-    Plotly.newPlot('chart_err', [
-      {x: t, y: series.vel_error, mode: 'lines', name: 'vel_error'},
-    ], layout('Velocity tracking error', 'vel_ref − vel_measured'), cfg);
+    // Initial render from server-side data.
+    draw({t: {{ t|tojson }}, series: {{ series|tojson }}, n_rows_displayed: {{ n_rows_displayed }}}, Plotly.newPlot);
 
-    Plotly.newPlot('chart_pos', [
-      {x: t, y: series.spit_angle_deg, mode: 'lines', name: 'spit_angle_deg'},
-      {x: t, y: series.pos_ref_deg,    mode: 'lines', name: 'pos_ref_deg'},
-      {x: t, y: series.pos_error_deg,  mode: 'lines', name: 'pos_error_deg'},
-    ], layout('Position', 'degrees'), cfg);
+    async function poll() {
+      if (!document.getElementById('auto_refresh').checked) return;
+      try {
+        const r = await fetch(`/session/${encodeURIComponent(NAME)}/data`, {cache: 'no-store'});
+        if (!r.ok) return;
+        const d = await r.json();
+        draw(d, Plotly.react);
+      } catch (e) {
+        // network blip — try again next tick
+      }
+    }
+    setInterval(poll, REFRESH_MS);
   </script>
 {% endblock %}
