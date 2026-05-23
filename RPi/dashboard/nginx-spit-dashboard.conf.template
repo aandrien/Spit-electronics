@@ -1,0 +1,24 @@
+# Spit dashboard — nginx site config (template).
+# `install.sh` substitutes __DASHBOARD_ROOT__ with the absolute path to this
+# folder, drops the result into /etc/nginx/sites-available/spit-dashboard, and
+# symlinks it from sites-enabled.
+
+server {
+  listen 8080 default_server;
+  listen [::]:8080 default_server;
+
+  server_name _;
+  root __DASHBOARD_ROOT__;
+  index index.html;
+
+  # Aggressively no-cache so the tablet always picks up the latest deploy.
+  add_header Cache-Control "no-store" always;
+
+  location / {
+    try_files $uri $uri/ =404;
+  }
+
+  # Slightly nicer error page when the static file is missing.
+  error_page 404 = @notfound;
+  location @notfound { return 404 "spit dashboard: file not found\n"; }
+}
