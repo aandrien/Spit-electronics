@@ -7,6 +7,8 @@ The Arduino in turn is connected to a Raspberry Pi 4 via USB. Using the [SerialT
 
 The RPi uses MQTT to make the data that is received in the Python script available anywhere on the RPi. Node-red then subscribes to these topics and the data is visualized in a node-red-dashboard.
 
+A lighter alternative dashboard ([`RPi/dashboard/`](RPi/dashboard)) runs alongside Node-Red on port `8080` — a single static HTML/JS page served by nginx, talking directly to Mosquitto over WebSockets (`:9001`). Designed for the tablet, fully offline-capable. See [`RPi/dashboard/README.md`](RPi/dashboard/README.md). `install.sh` sets it up automatically.
+
 !!!!!!TODO: add picture!!!!!
 
 ## How the Pi and Arduino communicate
