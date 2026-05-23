@@ -42,10 +42,12 @@ This makes oscillate mode work without a special protocol: leave `motor_start = 
 ### Arduino → Pi (telemetry)
 Every 50 ms the Arduino sends:
 
-| Offset | Field         | Type  | Meaning                                                   |
-|--------|---------------|-------|-----------------------------------------------------------|
-| 0      | `control_vel` | float | Moving-average measured velocity (magnitude, always ≥ 0)  |
-| 4      | `encoderSend` | int32 | Signed encoder count — direction-aware (see below)        |
+| Offset | Field            | Type  | Meaning                                                   |
+|--------|------------------|-------|-----------------------------------------------------------|
+| 0      | `control_vel`    | float | Moving-average measured velocity (magnitude, always ≥ 0)  |
+| 4      | `encoderSend`    | int32 | Signed encoder count — direction-aware (see below)        |
+| 8      | `u_duty`         | uint8 | PWM duty 0..100 the controller is commanding ("motor effort"). Logged for cook-time diagnostics. |
+| 9      | `error_integral` | float | Velocity-PID integral term — drifts upward under persistent load. |
 
 `encoderSend` is signed: the ISR increments on forward pulses and decrements on reverse pulses, based on the latched `current_direction` set by the main loop when it writes `directionPin`. Since the encoder is single-channel, the ISR has to *infer* direction from what was last commanded — which is reliable because the direction-flip latch only allows changes when the motor is at rest (see Direction latching above).
 
@@ -137,6 +139,45 @@ To avoid jolts when the motor would otherwise see a step change, the Python scri
 If the slider moves again mid-ramp, only `vel_ref_target` updates — the in-flight ramp re-aims at the new target on the next step instead of restarting.
 
 Constants live near the top of [`Spit_RPi_Arduino.py`](RPi/Spit_RPi_Arduino.py): `RAMP_RATE` (units/sec), `RAMP_TRIGGER_GAP` (deadband, units), `RAMP_STEP_INTERVAL` (seconds between steps). The Arduino itself does no ramping — if the local pot is the source, the controller sees raw pot values.
+
+## Data logging and viewer
+
+The Pi records every cook session to disk and exposes the data through a small web viewer. The control loop is never blocked by logging: the writer runs on its own thread and reads from a bounded queue — if the queue ever fills, telemetry rows get dropped and counted rather than back-pressuring the loop.
+
+### What gets logged
+
+- **Time-series CSV per session** (20 Hz). One row per Arduino telemetry packet: `t_s, vel_ref, vel_measured, vel_error, u_duty, error_integral, encoder_count, spit_angle_deg, direction, control_mode, pos_ref_deg, pos_error_deg`. `u_duty` is the load-bearing one for "how hard is the motor working" — a healthy steady-state cook hovers at a low constant value, climbing under heavier load.
+- **`sessions.csv`** — one row per Pi-commanded motor-on window: start/end timestamps, duration, total rounds, direction flips, avg/max `u_duty`, avg/max `|vel_error|`, CRC error count, dropped-row count.
+- **`events.csv`** — append-only log of state transitions: tunable changes (`P_gain: 2.0 -> 2.5`), mode flips, direction changes, Set Home presses, start/stop edges, CRC/payload errors.
+
+### Where the files live
+
+```
+~/.spit_logs/
+  sessions.csv
+  events.csv
+  ts/session_YYYY-MM-DD_HH-MM-SS.csv
+```
+
+Time-series files are capped at **500 MB total** (~80 hours of cooking). On startup and after every session close, the oldest files in `ts/` are deleted until the total is under the cap. `sessions.csv` and `events.csv` are tiny and kept forever.
+
+### How sessions are decided
+
+A session opens on the rising edge of the Pi's `start_stop` (i.e. the dashboard Start button) and closes on the falling edge. **Locally pot-started runs are not captured as sessions** — the Pi has no clean signal that the local button kicked things off, so telemetry during those runs is dropped at the writer. If this bites you, the easy follow-up is a `vel_measured`-threshold heuristic.
+
+### The Flask viewer
+
+`RPi/viewer/app.py` runs as `spit-viewer.service` (systemd, enabled by `install.sh`) on port 5000. Reach it at `http://<pi-ip>:5000`:
+
+- `/` — sessions table, newest first, with summary stats and a CSV download link per session
+- `/session/<file>` — Plotly charts: `vel_ref` vs `vel_measured`, `u_duty` + `error_integral`, `vel_error`, position (`spit_angle_deg`, `pos_ref_deg`, `pos_error_deg`). Long sessions are downsampled to ~4k points before rendering so the browser stays snappy; the raw CSV is always available via the download link.
+- `/events` — newest 500 events.
+
+Plotly is loaded from a CDN — no JS build, no extra Python deps beyond Flask.
+
+### Performance budget
+
+20 Hz × ~80 B/row ≈ **1.6 KB/s** = 5.7 MB/h. A 4-hour cook is ~25 MB. The writer flushes every 1 s or every 100 rows, so the worst-case data loss on power-cut is roughly the last second. Serial bandwidth headroom for the 5 extra telemetry bytes is fine — 100 B/s extra on a 115200 baud link is rounding error.
 
 ### Things to be aware of
 - **Field order is load-bearing.** If you add a new gain on the Pi side, you must add the matching `rxObj` on the Arduino in the same position, or every following field shifts and gets garbage.
@@ -277,8 +318,6 @@ so if want to kill the Spit program, I would do
 `kill 2102`. You can then run the `grep` command again to check if it is indeed killed.
 
 ## TODO
-- Add data logging and replay
-- Add visualization
 - Add sound with speakers
 - Add system identification
 - Add oscillate mode — sweep back and forth around a user-set center position (e.g. "bottom of the pig" for grilling one side only). Live-tunable from the dashboard: oscillation range (± degrees around center, e.g. 20° = sweeps from −20° to +20°) and center position (captured via a "set home" button at the current encoder angle). Sweep speed reuses the existing `vel_ref` slider — the controller stays in velocity mode and just flips the sign of `vel_ref` whenever the encoder crosses a range endpoint.
