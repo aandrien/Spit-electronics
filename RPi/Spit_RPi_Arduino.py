@@ -119,6 +119,11 @@ prev_start_stop = 0
 ramping = False
 last_ramp_time = 0.0
 
+# True once the first motor-start of this script run has opened a logging
+# session. Stays True for the rest of the script's lifetime — repeated
+# start/stops live as events inside the same session.
+session_started = False
+
 def sendData():
     sendSize = 0
 
@@ -292,7 +297,7 @@ def message_handling_vel_ref(client, userdata, msg):
         sendData()
 
 def message_handling_start_stop(client, userdata, msg):
-    global start_stop, prev_start_stop, vel_ref, ramping, last_ramp_time
+    global start_stop, prev_start_stop, vel_ref, ramping, last_ramp_time, session_started
     start_stop = 1 if msg.payload.decode() == "true" else 0
 
     if start_stop == 1 and prev_start_stop == 0:
@@ -304,9 +309,13 @@ def message_handling_start_stop(client, userdata, msg):
             vel_ref = vel_ref_target
             ramping = False
         publish_vel_ref_sent()
-        # A "session" spans the whole Python script lifetime (one CSV per
-        # power-on of the Pi), so start/stop edges are just events inside
-        # the running session — no new file opened here.
+        # Open the logging session on the first start of this script run.
+        # Subsequent start/stops stay inside the same session — they're
+        # just events. Telemetry pushed before this point is dropped at
+        # the writer (idle telemetry isn't interesting anyway).
+        if not session_started:
+            logger.start_session()
+            session_started = True
         logger.log_event("start", f"vel_ref_target={vel_ref_target} mode={control_mode}")
     elif start_stop == 0 and prev_start_stop == 1:
         ramping = False
@@ -465,11 +474,11 @@ if __name__ == '__main__':
             exit(0)
         print("Starting MQTT receive")
 
-        # Open the logging session. One CSV spans this whole Python-script
-        # lifetime; motor start/stop is recorded as events inside it, not
-        # as session boundaries. logger.stop() in the finally block closes
-        # the file and writes the summary row.
-        logger.start_session()
+        # The logging session is opened lazily on the first motor-start of
+        # this run (see message_handling_start_stop). Idle telemetry before
+        # that point is pushed to the queue but dropped at the writer.
+        # logger.stop() in the finally block closes the session (if one was
+        # ever opened) and writes the summary row.
 
         time.sleep(2) # allow some time for the Arduino to completely reset
         receive_client.loop_start()

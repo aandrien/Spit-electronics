@@ -163,9 +163,11 @@ Time-series files are capped at **500 MB total** (~80 hours of cooking). On star
 
 ### How sessions are decided
 
-One session = one run of `Spit_RPi_Arduino.py`. The session opens once at script startup (after USB connects) and closes in the `finally` block on shutdown. Repeatedly starting/stopping the rotisserie from the dashboard during a cook stays inside the same session — the start/stop transitions land in `events.csv` and show up as `vel_ref` drops in the time-series.
+A session opens on the **first dashboard-Start press** after `Spit_RPi_Arduino.py` boots, and closes in the `finally` block on script shutdown. So one session = one cook, even if you start/stop the rotisserie many times during it — the subsequent start/stop transitions land in `events.csv` and show up as `vel_ref` drops in the time-series. Idle telemetry before the first Start press is dropped at the writer (nothing interesting is happening yet).
 
-**Power-loss caveat**: if the Pi is yanked rather than shut down cleanly, the time-series CSV survives up to the last flush (≤1 s of data loss), but the summary row in `sessions.csv` never gets written. The session file is still in `ts/` and viewable.
+**Locally pot-started runs are not captured** — the Pi has no signal that the local button was pressed, so a session is never opened. If this bites you, the easy follow-up is to also open the session when `vel_measured > 0.5` is sustained.
+
+**Power-loss caveat**: if the Pi is yanked rather than shut down cleanly, the time-series CSV survives up to the last flush (≤1 s of data loss), but the summary row in `sessions.csv` never gets written. The session file is still in `ts/` and viewable (it shows as `incomplete` in the viewer's session list).
 
 ### The Flask viewer
 
