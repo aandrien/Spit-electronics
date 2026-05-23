@@ -147,7 +147,7 @@ The Pi records every cook session to disk and exposes the data through a small w
 ### What gets logged
 
 - **Time-series CSV per session** (20 Hz). One row per Arduino telemetry packet: `t_s, vel_ref, vel_measured, vel_error, u_duty, error_integral, encoder_count, spit_angle_deg, direction, control_mode, pos_ref_deg, pos_error_deg`. `u_duty` is the load-bearing one for "how hard is the motor working" — a healthy steady-state cook hovers at a low constant value, climbing under heavier load.
-- **`sessions.csv`** — one row per Pi-commanded motor-on window: start/end timestamps, duration, total rounds, direction flips, avg/max `u_duty`, avg/max `|vel_error|`, CRC error count, dropped-row count.
+- **`sessions.csv`** — one row per *Python-script lifetime* (script boot → clean shutdown): start/end timestamps, duration, total rounds, direction flips, avg/max `u_duty`, avg/max `|vel_error|`, CRC error count, dropped-row count.
 - **`events.csv`** — append-only log of state transitions: tunable changes (`P_gain: 2.0 -> 2.5`), mode flips, direction changes, Set Home presses, start/stop edges, CRC/payload errors.
 
 ### Where the files live
@@ -163,7 +163,9 @@ Time-series files are capped at **500 MB total** (~80 hours of cooking). On star
 
 ### How sessions are decided
 
-A session opens on the rising edge of the Pi's `start_stop` (i.e. the dashboard Start button) and closes on the falling edge. **Locally pot-started runs are not captured as sessions** — the Pi has no clean signal that the local button kicked things off, so telemetry during those runs is dropped at the writer. If this bites you, the easy follow-up is a `vel_measured`-threshold heuristic.
+One session = one run of `Spit_RPi_Arduino.py`. The session opens once at script startup (after USB connects) and closes in the `finally` block on shutdown. Repeatedly starting/stopping the rotisserie from the dashboard during a cook stays inside the same session — the start/stop transitions land in `events.csv` and show up as `vel_ref` drops in the time-series.
+
+**Power-loss caveat**: if the Pi is yanked rather than shut down cleanly, the time-series CSV survives up to the last flush (≤1 s of data loss), but the summary row in `sessions.csv` never gets written. The session file is still in `ts/` and viewable.
 
 ### The Flask viewer
 

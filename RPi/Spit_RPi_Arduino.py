@@ -304,15 +304,13 @@ def message_handling_start_stop(client, userdata, msg):
             vel_ref = vel_ref_target
             ramping = False
         publish_vel_ref_sent()
-        # Pi-commanded session begins here. The logger ignores rows pushed
-        # while no session is open, so we don't lose telemetry by gating
-        # session start on this edge.
-        logger.start_session()
+        # A "session" spans the whole Python script lifetime (one CSV per
+        # power-on of the Pi), so start/stop edges are just events inside
+        # the running session — no new file opened here.
         logger.log_event("start", f"vel_ref_target={vel_ref_target} mode={control_mode}")
     elif start_stop == 0 and prev_start_stop == 1:
         ramping = False
         logger.log_event("stop", "")
-        logger.end_session()
     elif start_stop == 0:
         ramping = False
 
@@ -466,7 +464,13 @@ if __name__ == '__main__':
             print("Could not connect to Arduino via USB, stopping program.")
             exit(0)
         print("Starting MQTT receive")
-        
+
+        # Open the logging session. One CSV spans this whole Python-script
+        # lifetime; motor start/stop is recorded as events inside it, not
+        # as session boundaries. logger.stop() in the finally block closes
+        # the file and writes the summary row.
+        logger.start_session()
+
         time.sleep(2) # allow some time for the Arduino to completely reset
         receive_client.loop_start()
         

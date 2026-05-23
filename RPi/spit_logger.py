@@ -224,6 +224,15 @@ class SpitLogger:
         except OSError:
             pass
 
+        # Empty session (script started + stopped before any telemetry arrived):
+        # delete the ghost file and skip the summary row.
+        if session["num_rows"] == 0:
+            try:
+                os.remove(session["path"])
+            except OSError:
+                pass
+            return
+
         end_t = time.time()
         end_iso = datetime.fromtimestamp(end_t).isoformat(timespec="seconds")
         duration = max(0.0, end_t - session["start"])
