@@ -31,6 +31,12 @@ FLOWS_PATH="$REPO_ROOT/RPi/node-red/flows.json"
 CREDS_PATH="$REPO_ROOT/RPi/node-red/flows_cred.json"
 START_SCRIPT="$REPO_ROOT/RPi/bash_scripts/start_spit.sh"
 SETTINGS="$HOME/.node-red/settings.js"
+DASHBOARD_DIR="$REPO_ROOT/RPi/dashboard"
+NGINX_TEMPLATE="$DASHBOARD_DIR/nginx-spit-dashboard.conf.template"
+NGINX_SITE_AVAILABLE="/etc/nginx/sites-available/spit-dashboard"
+NGINX_SITE_ENABLED="/etc/nginx/sites-enabled/spit-dashboard"
+MOSQUITTO_WS_SRC="$DASHBOARD_DIR/mosquitto-websockets.conf"
+MOSQUITTO_WS_DST="/etc/mosquitto/conf.d/websockets.conf"
 
 if [ "$EUID" -eq 0 ]; then
   echo "!! Don't run this as root. Run as the 'pi' user; the script will sudo where needed."
@@ -51,6 +57,14 @@ fi
 echo "==> Installing Mosquitto"
 sudo apt install -y mosquitto mosquitto-clients
 sudo systemctl enable --now mosquitto.service
+
+echo "==> Enabling Mosquitto WebSocket listener on :9001 (for lite dashboard)"
+if [ ! -f "$MOSQUITTO_WS_DST" ] || ! cmp -s "$MOSQUITTO_WS_SRC" "$MOSQUITTO_WS_DST"; then
+  sudo install -m 0644 "$MOSQUITTO_WS_SRC" "$MOSQUITTO_WS_DST"
+  sudo systemctl restart mosquitto.service
+else
+  echo "   already configured."
+fi
 
 echo "==> Installing Python + pip"
 sudo apt install -y python3 python3-pip
@@ -108,6 +122,27 @@ sudo systemctl restart nodered.service
 
 chmod +x "$START_SCRIPT"
 
+echo "==> Installing nginx + lite dashboard site on :8080"
+sudo apt install -y nginx
+sudo systemctl enable nginx.service
+NGINX_RENDERED="$(mktemp)"
+sed "s|__DASHBOARD_ROOT__|$DASHBOARD_DIR|g" "$NGINX_TEMPLATE" > "$NGINX_RENDERED"
+if [ ! -f "$NGINX_SITE_AVAILABLE" ] || ! sudo cmp -s "$NGINX_RENDERED" "$NGINX_SITE_AVAILABLE"; then
+  sudo install -m 0644 "$NGINX_RENDERED" "$NGINX_SITE_AVAILABLE"
+fi
+rm -f "$NGINX_RENDERED"
+sudo ln -sf "$NGINX_SITE_AVAILABLE" "$NGINX_SITE_ENABLED"
+# Make sure the default site doesn't also claim :8080.
+if [ -L /etc/nginx/sites-enabled/default ] || [ -f /etc/nginx/sites-enabled/default ]; then
+  sudo rm -f /etc/nginx/sites-enabled/default
+fi
+# nginx must be able to read $DASHBOARD_DIR; loosen home perms only if the
+# repo lives under a 0700 home (default www-data wouldn't traverse otherwise).
+sudo chmod o+x "$HOME" 2>/dev/null || true
+sudo nginx -t
+sudo systemctl restart nginx.service
+echo "   dashboard URL: http://<pi-ip>:8080/"
+
 echo "==> Crontab entry for $START_SCRIPT"
 if crontab -l 2>/dev/null | grep -qF "$START_SCRIPT"; then
   echo "   already in crontab."
@@ -132,5 +167,6 @@ fi
 
 echo
 echo "==> Done. Reboot the Pi to verify auto-start, then check:"
-echo "     sudo systemctl status nodered mosquitto spit-viewer"
+echo "     sudo systemctl status nodered mosquitto nginx spit-viewer"
 echo "     tail -f /home/pi/crontab_log.txt"
+echo "     Lite dashboard: http://<pi-ip>:8080/   (Node-Red still on :1880)"
