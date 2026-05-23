@@ -430,11 +430,13 @@ void loop() {
     uint16_t sendSize = 0;
 
     long encoderSend = encoderValue;  // signed: now reflects net direction-aware position
-    // encoderSend = encoderValue;
+    uint8_t u_duty = (uint8_t)u;      // PWM duty 0..100, what the controller is actually commanding
 
     ///////////////////////////////////////// Stuff buffer with struct
     sendSize = myTransfer.txObj(control_vel, sendSize);
     sendSize = myTransfer.txObj(encoderSend, sendSize);
+    sendSize = myTransfer.txObj(u_duty, sendSize);
+    sendSize = myTransfer.txObj(error_integral, sendSize);
 
     ///////////////////////////////////////// Send buffer
     myTransfer.sendData(sendSize);

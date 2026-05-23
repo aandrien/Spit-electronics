@@ -57,6 +57,8 @@ receive_client = paho.Client()
 
 vel_measured = 0.0
 encoderCount = 0
+u_duty = 0              # latest PWM duty (0..100) the Arduino reported
+error_integral = 0.0    # latest velocity-PID integral term the Arduino reported
 prev_encoder_count = None  # None until the first telemetry packet arrives
 total_abs_pulses = 0       # cumulative |delta| — counts revolutions in both directions equally
 
@@ -465,6 +467,12 @@ if __name__ == '__main__':
 
                     encoderCount = link.rx_obj(obj_type='l', start_pos=recSize)
                     recSize += txfer.STRUCT_FORMAT_LENGTHS['l']
+
+                    u_duty = link.rx_obj(obj_type='B', start_pos=recSize)
+                    recSize += txfer.STRUCT_FORMAT_LENGTHS['B']
+
+                    error_integral = link.rx_obj(obj_type='f', start_pos=recSize)
+                    recSize += txfer.STRUCT_FORMAT_LENGTHS['f']
 
                 # Accumulate absolute distance travelled so the rounds counter
                 # keeps going up regardless of direction. The Arduino's
