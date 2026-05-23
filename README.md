@@ -193,11 +193,15 @@ Power cuts will happen — the Spit may be plugged into a switched outlet, the c
 - **Session summary** — also `fsync`'d. If the cut happens *before* the summary is written, the time-series file is still on disk and shows as `incomplete` in the viewer.
 - **Settings file** (`~/.spit_settings.json`) — written atomically via `tmp → fsync → rename → directory fsync`. A power cut at any point either leaves the old file intact or the new file fully durable — never an empty/half-written file.
 
-**Not protected (needs hardware help):**
-- **SD card / OS corruption** is fundamentally a hardware problem. The Pi's ext4 root is journaled and survives normal power cuts, but every cycle wears the SD card and a bad write to the FAT32 `/boot` partition (which holds the bootloader) *can* require a re-flash. For a setup that gets power-cycled often, consider:
-  - An industrial-grade microSD (SanDisk Industrial, Samsung PRO Endurance) — handles power-loss events far better than consumer cards.
-  - A UPS HAT (PiJuice, UPS Pack Standard, etc.) — gives the Pi 30+ s to shut down cleanly when external power drops.
-  - Mounting `/var/log` (and optionally `/tmp`) as tmpfs to cut write churn — or installing `log2ram`. Reduces the steady-state write load that ages the card.
+**Not fully protected by our code, but covered by `harden_pi.sh`:**
+- The Pi's FAT32 `/boot` partition holds the bootloader and has no journal — a power cut while it's being written can brick the card. Our code never writes to `/boot`, but background apt updates and log rotation can. Run `./RPi/bash_scripts/harden_pi.sh` once per Pi to apply four SW-only hardening steps (each idempotent, safe to re-run):
+  1. **Mount `/boot` read-only** — the single biggest brick-prevention win. After this, `/boot` corruption from a power cut is effectively impossible. To install a kernel/firmware update: `sudo mount -o remount,rw /boot`, do the update, then `sudo mount -o remount,ro /boot`.
+  2. **`log2ram`** — moves `/var/log` to RAM, syncs to disk daily. Cuts steady-state SD wear and removes a corruption surface.
+  3. **Disable swap** — eliminates swap-induced writes. The Pi 4 has plenty of RAM for this workload.
+  4. **Disable unattended apt timers** — no background writes at random times. You still control manual `apt` commands.
+
+**Still needs hardware (not addressable in SW alone):**
+- SD card silicon-level corruption from brownouts is fundamentally a hardware problem. Even with all the above, an industrial-grade microSD (SanDisk Industrial, Samsung PRO Endurance) and a UPS HAT (PiJuice, UPS Pack Standard) would close the remaining gap.
 
 The on-disk format itself is just append-only CSVs, so even partial corruption of one file doesn't affect any other session.
 
