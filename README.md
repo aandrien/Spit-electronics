@@ -195,7 +195,7 @@ Power cuts will happen — the Spit may be plugged into a switched outlet, the c
 
 **Not fully protected by our code, but covered by `harden_pi.sh`:**
 - The Pi's FAT32 `/boot` partition holds the bootloader and has no journal — a power cut while it's being written can brick the card. Our code never writes to `/boot`, but background apt updates and log rotation can. Run `./RPi/bash_scripts/harden_pi.sh` once per Pi to apply four SW-only hardening steps (each idempotent, safe to re-run):
-  1. **Mount `/boot` read-only** — the single biggest brick-prevention win. After this, `/boot` corruption from a power cut is effectively impossible. To install a kernel/firmware update: `sudo mount -o remount,rw /boot`, do the update, then `sudo mount -o remount,ro /boot`.
+  1. **Mount `/boot` read-only** — the single biggest brick-prevention win. After this, `/boot` corruption from a power cut is effectively impossible. See the *Remounting `/boot` for updates* note below.
   2. **`log2ram`** — moves `/var/log` to RAM, syncs to disk daily. Cuts steady-state SD wear and removes a corruption surface.
   3. **Disable swap** — eliminates swap-induced writes. The Pi 4 has plenty of RAM for this workload.
   4. **Disable unattended apt timers** — no background writes at random times. You still control manual `apt` commands.
@@ -204,6 +204,18 @@ Power cuts will happen — the Spit may be plugged into a switched outlet, the c
 - SD card silicon-level corruption from brownouts is fundamentally a hardware problem. Even with all the above, an industrial-grade microSD (SanDisk Industrial, Samsung PRO Endurance) and a UPS HAT (PiJuice, UPS Pack Standard) would close the remaining gap.
 
 The on-disk format itself is just append-only CSVs, so even partial corruption of one file doesn't affect any other session.
+
+#### Remounting `/boot` for updates
+
+After running `harden_pi.sh`, **any** edit to `/boot/config.txt`, `apt full-upgrade`, or `rpi-update` will fail with `Read-only file system` unless you temporarily remount `/boot` writable. The fix is two commands around the update:
+
+```bash
+sudo mount -o remount,rw /boot       # or /boot/firmware on Bookworm+
+# ... do your update / edit ...
+sudo mount -o remount,ro /boot
+```
+
+If you forget the first command and the update fails: no harm done, just run the remount and retry. If you forget the *second* command and reboot, the next boot just mounts `/boot` ro again from fstab — also no harm. The window of vulnerability is only between the two commands, which is the period you're consciously updating.
 
 ### Things to be aware of
 - **Field order is load-bearing.** If you add a new gain on the Pi side, you must add the matching `rxObj` on the Arduino in the same position, or every following field shifts and gets garbage.
