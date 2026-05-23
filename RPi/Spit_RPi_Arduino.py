@@ -7,6 +7,10 @@ import paho.mqtt.client as paho
 import numpy as np
 from pySerialTransfer import pySerialTransfer as txfer
 
+from spit_logger import SpitLogger
+
+logger = SpitLogger()
+
 SETTINGS_PATH = os.path.expanduser("~/.spit_settings.json")
 
 ## Definitions ##
@@ -418,6 +422,11 @@ load_settings()
 for _var in CURRENT_TOPICS:
     publish_current(_var)
 
+# Start the background data-logging writer thread. Telemetry pushes are
+# non-blocking (drop-and-count if the writer falls behind), so this can't
+# stall the control loop.
+logger.start()
+
 if __name__ == '__main__':
     try:
         while not USB_connection_started and USB_connect_attemps <= USB_max_connect_attemps:
@@ -490,9 +499,28 @@ if __name__ == '__main__':
                 # counts_per_rev is live-tunable so the user can calibrate by
                 # spinning exactly one full turn after a Set Home and adjusting
                 # the constant until the displayed angle reads 360°.
+                spit_angle_deg = 0.0
                 if counts_per_rev > 0:
                     spit_angle_deg = (encoderCount - zero_count) / counts_per_rev * 360.0
                     send_client.publish(send_spit_angle_topic, str(spit_angle_deg))
+
+                # Push a telemetry row to the background logger. The logger
+                # drops rows (and counts them) if the queue fills, so this
+                # call never blocks. Only written to disk while a session is
+                # open — pushes during idle are harmless no-ops downstream.
+                logger.push_telemetry({
+                    "vel_ref":        vel_ref,
+                    "vel_measured":   vel_measured,
+                    "vel_error":      vel_ref - vel_measured,
+                    "u_duty":         u_duty,
+                    "error_integral": error_integral,
+                    "encoder_count":  encoderCount,
+                    "spit_angle_deg": spit_angle_deg,
+                    "direction":      direction,
+                    "control_mode":   control_mode,
+                    "pos_ref_deg":    pos_ref_deg,
+                    "pos_error_deg":  pos_ref_deg - spit_angle_deg,
+                })
 
                 ###################################################################
                 # Display the received data
@@ -516,12 +544,16 @@ if __name__ == '__main__':
             elif link.status < 0:
                 if link.status == txfer.Status.CRC_ERROR:
                     print('ERROR: CRC_ERROR')
+                    logger.note_crc_error()
                 elif link.status == txfer.Status.PAYLOAD_ERROR:
                     print('ERROR: PAYLOAD_ERROR')
+                    logger.note_crc_error()
                 elif link.status == txfer.Status.STOP_BYTE_ERROR:
                     print('ERROR: STOP_BYTE_ERROR')
+                    logger.note_crc_error()
                 else:
                     print('ERROR: {}'.format(link.status.name))
+                    logger.note_crc_error()
             
             ###################################################################
             # Parse response float
@@ -548,5 +580,6 @@ if __name__ == '__main__':
 
     finally:
         print("Disconnecting from the MQTT broker")
+        logger.stop()
         send_client.disconnect()
         receive_client.disconnect()
