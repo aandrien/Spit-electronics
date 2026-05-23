@@ -105,7 +105,12 @@ vel_ref_target = 0.0
 P_gain = 2.0
 I_action = 10.0
 feed_forward = 0.0
-direction = 0  # 0 = forward, 1 = reverse — drives Arduino directionPin
+direction = 1  # 0 = forward, 1 = reverse — drives Arduino directionPin.
+               # Defaults to 1 (reverse) to match the Arduino's boot-time
+               # directionPin = HIGH default. Keeping both ends agreed on the
+               # initial value means the first packet from the Pi doesn't flip
+               # the relay and produce a startup click. If you change either
+               # side, change both — see Arduino directionPin init comment.
 
 # Ramp: on Start, vel_ref ramps from 0 up to vel_ref_target. While running,
 # a setpoint change larger than RAMP_TRIGGER_GAP ramps from the current

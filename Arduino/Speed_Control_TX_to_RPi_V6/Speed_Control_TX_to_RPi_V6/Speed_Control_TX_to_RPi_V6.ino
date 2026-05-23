@@ -105,7 +105,8 @@ float max_pwm = 100;
 boolean motor_start = false;
 
 volatile long encoderValue = 0;          // signed: increments on forward pulses, decrements on reverse pulses
-volatile uint8_t current_direction = 0;  // mirror of the pin that's actually driving the H-bridge; ISR reads this to decide +/-
+volatile uint8_t current_direction = 1;  // mirror of the pin that's actually driving the H-bridge; ISR reads this to decide +/-
+                                         // Defaults to 1 (reverse) so it agrees with directionPin's HIGH idle and the Pi's matching default — see directionPin init below.
 volatile float vel = 0.0;                // pulse-rate magnitude (always >= 0) — direction is tracked separately
 volatile unsigned long prevT = 0;
 volatile unsigned long prevTmain = 0;
@@ -136,8 +137,8 @@ uint8_t start_stop_RPi  = 0;
 uint8_t start_stop_RPi_prev = 0;
 bool started_from_RPi = false;
 
-uint8_t direction_RPi = 0;     // requested direction from Pi (velocity-mode source of truth)
-uint8_t direction_target = 0;  // desired direction the latch is trying to apply
+uint8_t direction_RPi = 1;     // requested direction from Pi (velocity-mode source of truth) — defaults to 1 to match Pi's default
+uint8_t direction_target = 1;  // desired direction the latch is trying to apply
                                //   velocity mode: tracks direction_RPi
                                //   position mode: sign of (pos_ref - encoderValue)
                                // current_direction (already declared) is what's actually driving the H-bridge.
@@ -200,8 +201,14 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(encoderPin), updateEncoder, RISING);
 
   //-------------------------- Define pin modes
-  pinMode(directionPin, OUTPUT);    // sets the digital pin 13 as output
-  digitalWrite(directionPin, LOW);  // sets the digital pin 13 off
+  // Default direction = 1 (reverse), pin HIGH. Picked because the relay
+  // hardware idles less noisily in this state than at LOW. current_direction,
+  // direction_target, direction_RPi above all default to 1 too — and the Pi
+  // initializes its `direction` to 1 — so the very first packet from the Pi
+  // doesn't flip the relay and click. If you change the default, change all
+  // four sites + the Pi together.
+  pinMode(directionPin, OUTPUT);
+  digitalWrite(directionPin, HIGH);
 
   // Start Moving Average
   mySensor.begin();

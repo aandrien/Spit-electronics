@@ -39,6 +39,8 @@ The Pi re-sends the *whole* packet on every incoming MQTT message (`sendData()` 
 
 This makes oscillate mode work without a special protocol: leave `motor_start = true`, command `vel_ref` toward zero near an endpoint, then publish the direction flip — once the spit physically coasts down (a few hundred ms after PWM drops to zero), the latched direction applies and the next `vel_ref > 0` accelerates the other way.
 
+**Default direction = 1 (reverse).** Both sides boot with `direction = 1` so they agree from the first packet — the Arduino's `directionPin` idles HIGH and the Pi sends `direction=1` in its first command frame, so the latch's first evaluation is a no-op and the relay doesn't click. Picked over `0` (forward) because the relay hardware idles quieter HIGH. If you ever want to flip this back, four spots in `Speed_Control_TX_to_RPi_V6.ino` (`current_direction`, `direction_RPi`, `direction_target`, and the `digitalWrite(directionPin, ...)` in `setup()`) and one spot in `Spit_RPi_Arduino.py` (`direction = 1`) all need to move together — see the inline comments. Note the boot-chatter caused by the Leonardo's ~8 s bootloader window (during which the pin is INPUT/floating before `setup()` runs) is *not* addressed by this default — only a hardware pull-up/pull-down resistor on the pin fixes that.
+
 ### Arduino → Pi (telemetry)
 Every 50 ms the Arduino sends:
 
