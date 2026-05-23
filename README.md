@@ -181,7 +181,25 @@ Plotly is loaded from a CDN — no JS build, no extra Python deps beyond Flask.
 
 ### Performance budget
 
-20 Hz × ~80 B/row ≈ **1.6 KB/s** = 5.7 MB/h. A 4-hour cook is ~25 MB. The writer flushes every 1 s or every 100 rows, so the worst-case data loss on power-cut is roughly the last second. Serial bandwidth headroom for the 5 extra telemetry bytes is fine — 100 B/s extra on a 115200 baud link is rounding error.
+20 Hz × ~80 B/row ≈ **1.6 KB/s** = 5.7 MB/h. A 4-hour cook is ~25 MB. The writer flushes + `fsync`s every 1 s or every 100 rows, so the worst-case data loss on power-cut is roughly the last second. Serial bandwidth headroom for the 5 extra telemetry bytes is fine — 100 B/s extra on a 115200 baud link is rounding error.
+
+### Power-loss safety
+
+Power cuts will happen — the Spit may be plugged into a switched outlet, the cook can run for hours, and yanking the Pi mid-write is a question of *when*, not *if*. What's protected at the code level and what isn't:
+
+**Protected (code-level):**
+- **Time-series writes** — the logger calls `flush()` + `os.fsync()` after every batch, so the file on disk is at most ~1 s behind reality. ext4's journal protects the file's metadata, so the worst case after a power cut is a truncated last line (CSV parsers tolerate this).
+- **Event log** — every row is `fsync`'d before the file handle closes. An event recorded before the cut is durable.
+- **Session summary** — also `fsync`'d. If the cut happens *before* the summary is written, the time-series file is still on disk and shows as `incomplete` in the viewer.
+- **Settings file** (`~/.spit_settings.json`) — written atomically via `tmp → fsync → rename → directory fsync`. A power cut at any point either leaves the old file intact or the new file fully durable — never an empty/half-written file.
+
+**Not protected (needs hardware help):**
+- **SD card / OS corruption** is fundamentally a hardware problem. The Pi's ext4 root is journaled and survives normal power cuts, but every cycle wears the SD card and a bad write to the FAT32 `/boot` partition (which holds the bootloader) *can* require a re-flash. For a setup that gets power-cycled often, consider:
+  - An industrial-grade microSD (SanDisk Industrial, Samsung PRO Endurance) — handles power-loss events far better than consumer cards.
+  - A UPS HAT (PiJuice, UPS Pack Standard, etc.) — gives the Pi 30+ s to shut down cleanly when external power drops.
+  - Mounting `/var/log` (and optionally `/tmp`) as tmpfs to cut write churn — or installing `log2ram`. Reduces the steady-state write load that ages the card.
+
+The on-disk format itself is just append-only CSVs, so even partial corruption of one file doesn't affect any other session.
 
 ### Things to be aware of
 - **Field order is load-bearing.** If you add a new gain on the Pi side, you must add the matching `rxObj` on the Arduino in the same position, or every following field shifts and gets garbage.

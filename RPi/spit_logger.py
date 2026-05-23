@@ -108,6 +108,10 @@ class SpitLogger:
                     event_type,
                     details,
                 ])
+                # fsync after each event so a power-cut can't lose it.
+                # Volume is tiny (a few per cook), so SD-card wear is fine.
+                f.flush()
+                os.fsync(f.fileno())
         except OSError as e:
             print(f"SpitLogger: failed to write event: {e}")
 
@@ -153,8 +157,13 @@ class SpitLogger:
 
             if session is not None:
                 if rows_since_flush >= FLUSH_ROWS or (now - last_flush) >= FLUSH_INTERVAL_S:
+                    # flush() pushes to OS buffers; fsync() forces to disk.
+                    # Without the fsync, a power-cut between flush and the
+                    # next disk write loses everything since the last sync
+                    # and can leave the file's tail as a torn write.
                     try:
                         session["file"].flush()
+                        os.fsync(session["file"].fileno())
                     except OSError:
                         pass
                     last_flush = now
@@ -219,6 +228,13 @@ class SpitLogger:
             session["prev_direction"] = d
 
     def _close_session(self, session):
+        # Force the last partial buffer to disk before closing, so the file's
+        # final bytes survive an immediate power-cut after end_session().
+        try:
+            session["file"].flush()
+            os.fsync(session["file"].fileno())
+        except OSError:
+            pass
         try:
             session["file"].close()
         except OSError:
@@ -262,6 +278,8 @@ class SpitLogger:
         try:
             with open(SESSIONS_CSV, "a", newline="") as f:
                 csv.DictWriter(f, fieldnames=SESSION_COLUMNS).writerow(row)
+                f.flush()
+                os.fsync(f.fileno())
         except OSError as e:
             print(f"SpitLogger: failed to append session summary: {e}")
 

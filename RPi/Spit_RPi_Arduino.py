@@ -254,13 +254,26 @@ def load_settings():
         print(f"Loaded {var_name}={value} from {SETTINGS_PATH}")
 
 def save_settings():
-    """Persist user-tunable settings to disk atomically (write to .tmp then
-    rename) so a crash mid-write can't leave a half-written file behind."""
+    """Persist user-tunable settings to disk atomically and power-safely:
+    write to .tmp, fsync the tmp file, rename over the real path, fsync the
+    parent directory. Without the fsyncs the rename can land in the OS
+    buffer while the file contents are still missing — a power-cut between
+    the two would leave an empty target."""
     tmp_path = SETTINGS_PATH + ".tmp"
     try:
         with open(tmp_path, "w") as f:
             json.dump({name: globals()[name] for name, _, _ in PERSISTED_VARS}, f)
+            f.flush()
+            os.fsync(f.fileno())
         os.replace(tmp_path, SETTINGS_PATH)
+        try:
+            dir_fd = os.open(os.path.dirname(SETTINGS_PATH) or ".", os.O_DIRECTORY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+        except OSError:
+            pass  # directory fsync isn't supported on every FS — best effort
         print(f"Saved settings to {SETTINGS_PATH}")
     except Exception as e:
         print(f"Failed to save {SETTINGS_PATH}: {e}")
