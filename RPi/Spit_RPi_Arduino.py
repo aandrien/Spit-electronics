@@ -184,9 +184,15 @@ def make_float_handler(var_name, lo=None, hi=None):
         value = float(payload)
         if lo is not None:
             value = min(max(value, lo), hi)
+        old = globals().get(var_name)
         globals()[var_name] = value
         sendData()
         publish_current(var_name)
+        # Only log when the value actually changed — the dashboard re-publishes
+        # all values on every edit (see sendData()), so without this filter
+        # we'd flood events.csv with no-op rows.
+        if old != value:
+            logger.log_event("tunable_change", f"{var_name}: {old} -> {value}")
     return handler
 
 # (variable name, min, max) for everything persisted to disk. All entries are
@@ -298,6 +304,15 @@ def message_handling_start_stop(client, userdata, msg):
             vel_ref = vel_ref_target
             ramping = False
         publish_vel_ref_sent()
+        # Pi-commanded session begins here. The logger ignores rows pushed
+        # while no session is open, so we don't lose telemetry by gating
+        # session start on this edge.
+        logger.start_session()
+        logger.log_event("start", f"vel_ref_target={vel_ref_target} mode={control_mode}")
+    elif start_stop == 0 and prev_start_stop == 1:
+        ramping = False
+        logger.log_event("stop", "")
+        logger.end_session()
     elif start_stop == 0:
         ramping = False
 
@@ -353,6 +368,7 @@ def message_handling_control_mode(client, userdata, msg):
         return
 
     if new_mode != control_mode:
+        logger.log_event("control_mode", f"{control_mode} -> {new_mode}")
         if new_mode == 1:
             # Snap pos_ref_deg to current spit angle so the controller has
             # error=0 the instant it takes over.
@@ -380,16 +396,20 @@ def message_handling_set_home(client, userdata, msg):
     if msg.payload.decode().strip() == "":
         return
     zero_count = encoderCount
+    logger.log_event("set_home", f"encoder_count={encoderCount}")
 
 def message_handling_direction(client, userdata, msg):
     global direction
     payload = msg.payload.decode().strip().lower()
     if payload in ("true", "1"):
-        direction = 1
+        new_dir = 1
     elif payload in ("false", "0"):
-        direction = 0
+        new_dir = 0
     else:
         return
+    if new_dir != direction:
+        logger.log_event("direction", f"{direction} -> {new_dir}")
+    direction = new_dir
     sendData()
 
 USB_connection_started = False # flag to check USB connection has been made
